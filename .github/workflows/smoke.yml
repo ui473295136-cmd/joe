@@ -40,17 +40,18 @@ jobs:
           ! grep -q 'dashboard.html' app-v4.html
           ! grep -q 'precision-map-profile' app-v4.html
           grep -q 'data-view="me".*navBadge' app-v4.html
-          grep -q "chuanxi-2026-v23" sw.js
+          grep -q "chuanxi-2026-v24" sw.js
       - name: Map tile connectivity
         shell: bash
         run: |
           set +e
           UA='Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X) AppleWebKit/605.1.15 Mobile/15E148'
-          curl -A "$UA" -fL --max-time 12 -sS 'https://webrd01.is.autonavi.com/appmaptile?style=7&lang=zh_cn&size=1&scale=1&x=53990&y=24854&z=16' -o /tmp/amap.png
+          curl -A "$UA" -fL --max-time 8 -sS 'https://webrd01.is.autonavi.com/appmaptile?style=7&lang=zh_cn&size=1&scale=1&x=53990&y=24854&z=16' -o /tmp/amap.png
           A=$?
-          curl -A "$UA" -fL --max-time 12 -sS 'https://map.geoq.cn/ArcGIS/rest/services/ChinaOnlineCommunity/MapServer/tile/16/24854/53990' -o /tmp/geoq.png
+          curl -A "$UA" -fL --max-time 8 -sS 'https://map.geoq.cn/ArcGIS/rest/services/ChinaOnlineCommunity/MapServer/tile/16/24854/53990' -o /tmp/geoq.png
           B=$?
           set -e
+          echo "primary=$A fallback=$B"
           if [ "$A" -ne 0 ] && [ "$B" -ne 0 ]; then echo 'Both map tile sources failed'; exit 1; fi
           test -s /tmp/amap.png || test -s /tmp/geoq.png
       - name: Install browser driver
@@ -97,6 +98,23 @@ jobs:
               }
               await page.close();
             }
+            const slow=await browser.newPage();
+            await slow.setViewport({width:390,height:844,deviceScaleFactor:3,isMobile:true,hasTouch:true});
+            await slow.setRequestInterception(true);
+            slow.on('request',req=>{
+              const u=req.url();
+              if(u.includes('webrd0')) return setTimeout(()=>req.abort('timedout').catch(()=>{}),2600);
+              if(u.includes('map.geoq.cn')) return req.respond({status:200,contentType:'image/png',body:tiny});
+              req.continue();
+            });
+            await slow.goto('http://127.0.0.1:8000/app-v4.html?person=%E7%91%9E%E5%AD%90&qa=1',{waitUntil:'domcontentloaded',timeout:20000});
+            await slow.waitForSelector('#bottomNav button[data-view="map"]',{timeout:8000});
+            await slow.click('#bottomNav button[data-view="map"]');
+            try{await slow.waitForFunction(()=>document.querySelector('#fullMap')?.dataset.mapState==='ready',{timeout:7000})}catch(e){}
+            const state=await slow.$eval('#fullMap',e=>e.dataset.mapState||'');
+            console.log('stalled-primary-map-state',state);
+            if(state!=='ready'){failed=true;console.error('FAIL stalled primary did not fail over',state)}
+            await slow.close();
             await browser.close();
             if(failed)process.exit(1);
           })().catch(e=>{console.error(e);process.exit(1)});
