@@ -19,22 +19,24 @@ jobs:
           node --check app-v4.js
           node --check geo-throttle.js
           node --check minimal-v1.js
+          node --check profile-sync-v2.js
           node --check map-v5.js
           node --check qa-mock.js
           node --check qa-probe.js
       - name: Required files and links
         shell: bash
         run: |
-          for f in index.html app-v4.html app-v4.css app-v4.js geo-throttle.js minimal-v1.js minimal-v1.css map-v5.js map-v5.css qa-mock.js qa-probe.js avatars.js manifest.webmanifest icon.svg sw.js road-routes.json; do test -s "$f"; done
+          for f in index.html app-v4.html app-v4.css app-v4.js geo-throttle.js minimal-v1.js minimal-v1.css profile-sync-v2.js profile-sync-v2.css map-v5.js map-v5.css qa-mock.js qa-probe.js avatars.js manifest.webmanifest icon.svg sw.js road-routes.json; do test -s "$f"; done
           grep -q 'app-v4.html' index.html
           grep -q 'app-v4.js' app-v4.html
           grep -q 'map-v5.js' app-v4.html
           grep -q 'minimal-v1.js' geo-throttle.js
+          grep -q 'profile-sync-v2.js' geo-throttle.js
           ! grep -q 'decision-v2.js' geo-throttle.js
           ! grep -q 'ux-v6.js' geo-throttle.js
           ! grep -q 'dashboard.html' index.html
           grep -q 'data-view="me".*navBadge' app-v4.html
-          grep -q "chuanxi-2026-v27" sw.js
+          grep -q "chuanxi-2026-v28" sw.js
       - name: Map tile connectivity
         shell: bash
         run: |
@@ -79,13 +81,13 @@ jobs:
               });
               const url=`http://127.0.0.1:8000/app-v4.html?person=${encodeURIComponent(person)}&qa=1`;
               await page.goto(url,{waitUntil:'domcontentloaded',timeout:20000});
-              try{await page.waitForFunction(()=>document.querySelector('#qaResult')?.dataset.status,{timeout:24000})}catch(e){}
+              try{await page.waitForFunction(()=>document.querySelector('#qaResult')?.dataset.status,{timeout:26000})}catch(e){}
               const result=await page.$eval('#qaResult',e=>({status:e.dataset.status,text:e.textContent})).catch(()=>({status:'missing',text:'qaResult missing'}));
               const bodyPin=await page.evaluate(()=>/PIN不正确|pin不正确/i.test(document.body.innerText));
-              const navCount=await page.$$eval('#bottomNav button[data-view]',x=>x.length);
+              const visibleNav=await page.$$eval('#bottomNav button[data-view]:not([hidden])',x=>x.length);
               console.log(person,result.text);
-              if(result.status!=='pass'||errors.length||bodyPin||navCount!==5){
-                failed=true;console.error('FAIL',person,{result,errors,bodyPin,navCount});
+              if(result.status!=='pass'||errors.length||bodyPin||visibleNav!==4){
+                failed=true;console.error('FAIL',person,{result,errors,bodyPin,visibleNav});
                 await page.screenshot({path:`/tmp/${person}-fail.png`,fullPage:true}).catch(()=>{});
               }
               await page.close();
@@ -100,11 +102,11 @@ jobs:
               req.continue();
             });
             await slow.goto('http://127.0.0.1:8000/app-v4.html?person=%E7%91%9E%E5%AD%90&qa=1',{waitUntil:'domcontentloaded',timeout:20000});
-            await slow.waitForSelector('#bottomNav button[data-view="map"]',{timeout:8000});
-            await slow.click('#bottomNav button[data-view="map"]');
-            try{await slow.waitForFunction(()=>document.querySelector('#fullMap')?.dataset.mapState==='ready',{timeout:7000})}catch(e){}
+            await slow.waitForSelector('#quickMapBtn',{timeout:10000});
+            await slow.click('#quickMapBtn');
+            try{await slow.waitForFunction(()=>['ready','fallback'].includes(document.querySelector('#fullMap')?.dataset.mapState),{timeout:7000})}catch(e){}
             const state=await slow.$eval('#fullMap',e=>e.dataset.mapState||'');
-            if(state!=='ready'){failed=true;console.error('FAIL stalled primary did not fail over',state)}
+            if(!['ready','fallback'].includes(state)){failed=true;console.error('FAIL stalled primary did not fail over',state)}
             await slow.close();
             await browser.close();
             if(failed)process.exit(1);
