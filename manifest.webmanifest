@@ -1,0 +1,13 @@
+{
+  "name": "川西反穿 2026｜四人实时自驾系统",
+  "short_name": "川西自驾",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#f3f8f8",
+  "theme_color": "#073b55",
+  "description": "瑞子、普子、航子、辉子的2026国庆川西反穿自驾行程、实时地图、AA账本与旅行纪念册。",
+  "icons": [
+    {"src":"./icon.svg","sizes":"any","type":"image/svg+xml","purpose":"any maskable"}
+  ]
+}
