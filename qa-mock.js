@@ -1,0 +1,15 @@
+(()=>{
+'use strict';
+if(new URLSearchParams(location.search).get('qa')!=='1')return;
+const TEAM=['瑞子','普子','航子','辉子'];
+const now=new Date().toISOString();
+const positions=TEAM.map((person,i)=>({trip_slug:'chuanxi2026',person,lat:39.814313+i*.0003,lon:116.577886+i*.00025,accuracy:7+i,altitude:42+i,updated_at:now,status:'在线'}));
+const profiles=TEAM.map(person=>({trip_slug:'chuanxi2026',person,nickname:person,role:{瑞子:'酒店 / 账本',普子:'攻略 / 路况',航子:'机票 / 航班',辉子:'租车 / 车务'}[person],last_seen:now,updated_at:now,avatar_url:null}));
+const expenses=TEAM.map((payer,i)=>({id:'qa-exp-'+i,trip_slug:'chuanxi2026',category:i===0?'住宿':i===1?'吃饭':i===2?'机票':'油费',amount:[400,286,6320,350][i],note:'QA测试账单',payer,participants:[...TEAM],status:'paid',created_at:now}));
+const baseState={expenses,repayments:[],person_positions:positions,trip_state:{trip_slug:'chuanxi2026',fuel_level:46,current_driver:'辉子'},milestones:[],memories:[],parking:null,bookings:[{id:'qa-b1',kind:'酒店',title:'QA酒店',details:'测试预订',uploaded_by:'瑞子',status:'已确认',created_at:now}],emergency_contacts:[],preferences:{trip_slug:'chuanxi2026',trip_budget:12000,active_driver:'辉子'},profiles,logs:TEAM.map((person,i)=>({id:'qa-log-'+i,person,category:'设置',action:'QA记录',detail:'身份页面测试',created_at:now})),ledger_acks:[]};
+try{const g=navigator.geolocation;if(g){g.watchPosition=(ok)=>{const id=setTimeout(()=>ok({coords:{latitude:39.814313,longitude:116.577886,accuracy:8,altitude:42,speed:0,heading:0},timestamp:Date.now()}),25);return id};g.getCurrentPosition=(ok)=>setTimeout(()=>ok({coords:{latitude:39.814313,longitude:116.577886,accuracy:8,altitude:42,speed:0,heading:0},timestamp:Date.now()}),25);g.clearWatch=id=>clearTimeout(id)}}catch(e){}
+const realFetch=window.fetch.bind(window);
+const res=(obj,status=200)=>Promise.resolve(new Response(JSON.stringify(obj),{status,headers:{'Content-Type':'application/json'}}));
+window.fetch=async(input,init={})=>{const url=String(typeof input==='string'?input:input?.url||'');if(url.includes('/functions/v1/trip-sync')){let b={};try{b=JSON.parse(init.body||'{}')}catch(e){}const a=b.action;if(a==='get_state')return res(baseState);if(a==='heartbeat'||a==='update_person_position'||a==='acknowledge_expense'||a==='update_profile'||a==='upload_avatar'||a==='add_expense'||a==='update_expense'||a==='delete_expense'||a==='add_repayment'||a==='update_repayment'||a==='delete_repayment'||a==='add_booking'||a==='upload_photo'||a==='delete_photo'||a==='attach_receipt')return res({ok:true,row:{id:'qa-row'}});return res({ok:true})}if(url.includes('/functions/v1/trip-vote'))return res({ok:true,votes:[]});if(url.includes('api.open-meteo.com'))return res({current:{temperature_2m:21,apparent_temperature:20,weather_code:1,wind_speed_10m:8,cloud_cover:25,precipitation:0},hourly:{time:[],precipitation_probability:[],cloud_cover:[],weather_code:[]},daily:{sunrise:[new Date(Date.now()-8*3600000).toISOString()],sunset:[new Date(Date.now()+2*3600000).toISOString()]}});if(url.includes('overpass'))return res({elements:[]});return realFetch(input,init)};
+window.__CW_QA_MOCK=1;
+})();
