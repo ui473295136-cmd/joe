@@ -1,0 +1,50 @@
+name: Inspect reference travel page
+on:
+  push:
+    paths:
+      - '.github/workflows/inspect-reference.yml'
+jobs:
+  inspect:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - name: Install Playwright
+        run: |
+          npm init -y
+          npm install playwright
+          npx playwright install --with-deps chromium
+      - name: Capture page
+        run: |
+          cat > inspect.mjs <<'EOF'
+          import { chromium } from 'playwright';
+          import fs from 'fs';
+          const browser = await chromium.launch({headless:true});
+          const page = await browser.newPage({ viewport: { width: 1440, height: 1200 }, deviceScaleFactor: 1 });
+          const target = 'http://trip.everunfold.com/arctic2026/';
+          await page.goto(target, {waitUntil:'networkidle', timeout:90000});
+          await page.screenshot({path:'reference-full.png', fullPage:true});
+          fs.writeFileSync('reference.html', await page.content());
+          fs.writeFileSync('reference.txt', await page.locator('body').innerText());
+          const meta = await page.evaluate(() => ({
+            title: document.title,
+            viewport: {w: innerWidth, h: innerHeight},
+            sections: [...document.querySelectorAll('section')].map((s,i)=>({i,id:s.id,cls:s.className,text:(s.innerText||'').slice(0,300)})),
+            buttons:[...document.querySelectorAll('button,a')].map((el,i)=>({i,tag:el.tagName,text:(el.innerText||'').trim().slice(0,120),href:el.href||'',cls:el.className})).filter(x=>x.text),
+            styles:[...document.styleSheets].map(s=>s.href||'inline'),
+            scripts:[...document.scripts].map(s=>s.src||'inline')
+          }));
+          fs.writeFileSync('reference-meta.json', JSON.stringify(meta,null,2));
+          await browser.close();
+          EOF
+          node inspect.mjs
+      - uses: actions/upload-artifact@v4
+        with:
+          name: reference-capture
+          path: |
+            reference-full.png
+            reference.html
+            reference.txt
+            reference-meta.json
