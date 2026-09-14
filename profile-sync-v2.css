@@ -1,0 +1,17 @@
+/* Profile sync + simplified navigation */
+#bottomNav.cw-four-tabs{grid-template-columns:repeat(4,minmax(0,1fr))!important}
+#bottomNav button[data-view="map"]{display:none!important}
+.cw-now-actions{display:flex;align-items:center;gap:8px;margin-left:auto}
+#quickMapBtn{min-height:36px;padding:0 12px;font-size:13px;white-space:nowrap}
+.identity-item{min-height:68px}
+.identity-avatar{width:46px;height:46px;border-radius:50%;display:grid;place-items:center;background:#dcecf1 center/cover no-repeat;color:#0b6078;font-weight:900;flex:0 0 46px;overflow:hidden}
+.profile-card .avatar.xxl{background-position:center;background-size:cover}
+#avatarState{min-height:20px;line-height:1.45}
+@media(max-width:480px){
+  #bottomNav button{font-size:12px!important;min-height:58px}
+  #bottomNav button span{font-size:19px!important}
+  .profile-fields label{font-size:14px}
+  .profile-fields input{font-size:16px;min-height:44px}
+  .identity-item b{font-size:15px}.identity-item small{font-size:12px}
+  #quickMapBtn{font-size:13px;min-height:38px}
+}
