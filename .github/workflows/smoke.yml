@@ -56,7 +56,7 @@ jobs:
           ! grep -q 'ux-v6.js' geo-throttle.js
           ! grep -q 'dashboard.html' index.html
           grep -q 'data-view="me".*navBadge' app-v4.html
-          grep -q "chuanxi-2026-v35" sw.js
+          grep -q "chuanxi-2026-v36" sw.js
       - name: Production backend read checks
         shell: bash
         run: |
