@@ -3,6 +3,8 @@ on:
   push:
     paths:
       - '.github/workflows/build-road-routes.yml'
+permissions:
+  contents: write
 jobs:
   routes:
     runs-on: ubuntu-latest
@@ -38,7 +40,10 @@ jobs:
             json.dump(out,f,ensure_ascii=False,separators=(',',':'))
           print(json.dumps({k:{'points':len(v['coordinates']),'km':round(v['distance']/1000,1)} for k,v in out.items()},ensure_ascii=False,indent=2))
           PY
-      - uses: actions/upload-artifact@v4
-        with:
-          name: road-routes
-          path: road-routes.json
+      - name: Commit route geometry
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add road-routes.json
+          git commit -m "Update real road route geometry" || exit 0
+          git push
