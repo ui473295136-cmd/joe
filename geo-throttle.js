@@ -2,6 +2,6 @@
 try{const d=Object.getOwnPropertyDescriptor(Element.prototype,'innerHTML');if(d?.get&&d?.set&&!window.__cwTileHtmlGuard){Object.defineProperty(Element.prototype,'innerHTML',{configurable:true,enumerable:d.enumerable,get:d.get,set:function(v){if(this?.id==='tileGrid'){if(this.__cwLastTileHtml===v)return;this.__cwLastTileHtml=v}return d.set.call(this,v)}});window.__cwTileHtmlGuard=1}}catch(e){}
 function style(href,mark){if(document.querySelector(`link[data-${mark}]`))return;const l=document.createElement('link');l.rel='stylesheet';l.href=href;l.dataset[mark.replace(/-([a-z])/g,(_,c)=>c.toUpperCase())]='1';document.head.appendChild(l)}
 function script(src,mark){if(document.querySelector(`script[data-${mark}]`))return;const s=document.createElement('script');s.src=src;s.dataset[mark.replace(/-([a-z])/g,(_,c)=>c.toUpperCase())]='1';s.async=false;document.body.appendChild(s)}
-function loadExtras(){style('./decision-v2.css?v=1','cw-decision-style');style('./ux-v6.css?v=1','cw-ux-style');script('./decision-v2.js?v=1','cw-decision');script('./ux-v6.js?v=1','cw-ux')}
+function loadExtras(){style('./decision-v2.css?v=1','cw-decision-style');style('./ux-v6.css?v=1','cw-ux-style');script('./decision-v2.js?v=1','cw-decision');script('./amap-coordinate-fix.js?v=1','cw-amap-fix');script('./ux-v6.js?v=1','cw-ux')}
 if(document.readyState==='complete')setTimeout(loadExtras,50);else window.addEventListener('load',()=>setTimeout(loadExtras,50),{once:true});
 })();
