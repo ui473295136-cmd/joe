@@ -1,4 +1,5 @@
 {
+  "id": "./",
   "name": "川西反穿 2026｜四人实时自驾系统",
   "short_name": "川西自驾",
   "start_url": "./",
@@ -9,5 +10,11 @@
   "description": "瑞子、普子、航子、辉子的2026国庆川西反穿自驾行程、实时地图、AA账本与旅行纪念册。",
   "icons": [
     {"src":"./icon.svg","sizes":"any","type":"image/svg+xml","purpose":"any maskable"}
+  ],
+  "shortcuts": [
+    {"name":"瑞子的川西自驾","short_name":"瑞子","url":"./?person=%E7%91%9E%E5%AD%90&widget=1","icons":[{"src":"./icon.svg","sizes":"any","type":"image/svg+xml"}]},
+    {"name":"航子的川西自驾","short_name":"航子","url":"./?person=%E8%88%AA%E5%AD%90&widget=1","icons":[{"src":"./icon.svg","sizes":"any","type":"image/svg+xml"}]},
+    {"name":"普子的川西自驾","short_name":"普子","url":"./?person=%E6%99%AE%E5%AD%90&widget=1","icons":[{"src":"./icon.svg","sizes":"any","type":"image/svg+xml"}]},
+    {"name":"辉子的川西自驾","short_name":"辉子","url":"./?person=%E8%BE%89%E5%AD%90&widget=1","icons":[{"src":"./icon.svg","sizes":"any","type":"image/svg+xml"}]}
   ]
 }
