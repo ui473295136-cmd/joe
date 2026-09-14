@@ -1,0 +1,10 @@
+(()=>{
+'use strict';
+const TEAM=['瑞子','普子','航子','辉子'];
+const AUTH='https://wpfqcztbxxarsrruuuce.supabase.co/functions/v1/trip-auth',TRIP='chuanxi2026';
+const ADMIN=sessionStorage.getItem('cw-admin')==='1';
+if(!ADMIN)return;
+let busy=false;
+function toast(t){const e=document.querySelector('#toast');if(e){e.textContent=t;e.classList.add('show');clearTimeout(e._t);e._t=setTimeout(()=>e.classList.remove('show'),2400)}}
+window.addEventListener('click',async e=>{const b=e.target.closest?.('[data-switch-person]');if(!b)return;const target=b.dataset.switchPerson;if(!TEAM.includes(target))return;e.preventDefault();e.stopPropagation();e.stopImmediatePropagation();const current=new URLSearchParams(location.search).get('person')||localStorage.getItem('cw-person')||'瑞子';if(target===current)return;if(busy)return;busy=true;const token=sessionStorage.getItem('cw-auth-瑞子')||'';if(!token){toast('管理员登录已失效，请重新验证瑞子密码');setTimeout(()=>location.replace('./?person='+encodeURIComponent('瑞子')),800);return}try{const c=new AbortController(),t=setTimeout(()=>c.abort(),9000);const r=await fetch(AUTH,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({trip_slug:TRIP,action:'admin_switch',payload:{admin_person:'瑞子',target_person:target,token}}),signal:c.signal});clearTimeout(t);const j=await r.json().catch(()=>({}));if(!r.ok)throw new Error(j.error||'切换失败');sessionStorage.setItem(`cw-auth-${target}`,j.token);sessionStorage.setItem(`cw-auth-exp-${target}`,j.expires_at||'');sessionStorage.setItem('cw-admin','1');localStorage.setItem('cw-person',target);location.replace(`./app-v4.html?person=${encodeURIComponent(target)}`)}catch(err){toast(err.message||'切换失败');if(String(err.message||'').includes('管理员登录已失效'))setTimeout(()=>location.replace('./?person='+encodeURIComponent('瑞子')),900)}finally{busy=false}},true)
+})();
