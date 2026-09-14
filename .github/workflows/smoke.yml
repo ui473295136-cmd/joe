@@ -19,6 +19,7 @@ jobs:
           node --check app-v4.js
           node --check geo-throttle.js
           node --check decision-v2.js
+          node --check amap-coordinate-fix.js
           node --check map-v5.js
           node --check ux-v6.js
           node --check qa-mock.js
@@ -26,13 +27,14 @@ jobs:
       - name: Required files and links
         shell: bash
         run: |
-          for f in index.html app-v4.html app-v4.css app-v4.js geo-throttle.js decision-v2.js decision-v2.css map-v5.js map-v5.css ux-v6.css ux-v6.js qa-mock.js qa-probe.js avatars.js manifest.webmanifest icon.svg sw.js road-routes.json; do test -s "$f"; done
+          for f in index.html app-v4.html app-v4.css app-v4.js geo-throttle.js decision-v2.js decision-v2.css amap-coordinate-fix.js map-v5.js map-v5.css ux-v6.css ux-v6.js qa-mock.js qa-probe.js avatars.js manifest.webmanifest icon.svg sw.js road-routes.json; do test -s "$f"; done
           grep -q 'app-v4.html' index.html
           grep -q 'app-v4.js' app-v4.html
           grep -q 'map-v5.js' app-v4.html
           grep -q 'qa-mock.js' app-v4.html
           grep -q 'qa-probe.js' app-v4.html
           grep -q 'decision-v2.js' geo-throttle.js
+          grep -q 'amap-coordinate-fix.js' geo-throttle.js
           grep -q 'ux-v6.js' geo-throttle.js
           ! grep -q 'decision-v1.js' geo-throttle.js
           ! grep -q 'ux-v5.js' geo-throttle.js
@@ -40,7 +42,7 @@ jobs:
           ! grep -q 'dashboard.html' app-v4.html
           ! grep -q 'precision-map-profile' app-v4.html
           grep -q 'data-view="me".*navBadge' app-v4.html
-          grep -q "chuanxi-2026-v25" sw.js
+          grep -q "chuanxi-2026-v26" sw.js
       - name: Map tile connectivity
         shell: bash
         run: |
