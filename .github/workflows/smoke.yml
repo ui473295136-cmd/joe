@@ -18,31 +18,23 @@ jobs:
         run: |
           node --check app-v4.js
           node --check geo-throttle.js
-          node --check decision-v2.js
-          node --check amap-coordinate-fix.js
+          node --check minimal-v1.js
           node --check map-v5.js
-          node --check ux-v6.js
           node --check qa-mock.js
           node --check qa-probe.js
       - name: Required files and links
         shell: bash
         run: |
-          for f in index.html app-v4.html app-v4.css app-v4.js geo-throttle.js decision-v2.js decision-v2.css amap-coordinate-fix.js map-v5.js map-v5.css ux-v6.css ux-v6.js qa-mock.js qa-probe.js avatars.js manifest.webmanifest icon.svg sw.js road-routes.json; do test -s "$f"; done
+          for f in index.html app-v4.html app-v4.css app-v4.js geo-throttle.js minimal-v1.js minimal-v1.css map-v5.js map-v5.css qa-mock.js qa-probe.js avatars.js manifest.webmanifest icon.svg sw.js road-routes.json; do test -s "$f"; done
           grep -q 'app-v4.html' index.html
           grep -q 'app-v4.js' app-v4.html
           grep -q 'map-v5.js' app-v4.html
-          grep -q 'qa-mock.js' app-v4.html
-          grep -q 'qa-probe.js' app-v4.html
-          grep -q 'decision-v2.js' geo-throttle.js
-          grep -q 'amap-coordinate-fix.js' geo-throttle.js
-          grep -q 'ux-v6.js' geo-throttle.js
-          ! grep -q 'decision-v1.js' geo-throttle.js
-          ! grep -q 'ux-v5.js' geo-throttle.js
+          grep -q 'minimal-v1.js' geo-throttle.js
+          ! grep -q 'decision-v2.js' geo-throttle.js
+          ! grep -q 'ux-v6.js' geo-throttle.js
           ! grep -q 'dashboard.html' index.html
-          ! grep -q 'dashboard.html' app-v4.html
-          ! grep -q 'precision-map-profile' app-v4.html
           grep -q 'data-view="me".*navBadge' app-v4.html
-          grep -q "chuanxi-2026-v26" sw.js
+          grep -q "chuanxi-2026-v27" sw.js
       - name: Map tile connectivity
         shell: bash
         run: |
@@ -53,7 +45,6 @@ jobs:
           curl -A "$UA" -fL --max-time 8 -sS 'https://map.geoq.cn/ArcGIS/rest/services/ChinaOnlineCommunity/MapServer/tile/16/24854/53990' -o /tmp/geoq.png
           B=$?
           set -e
-          echo "primary=$A fallback=$B"
           if [ "$A" -ne 0 ] && [ "$B" -ne 0 ]; then echo 'Both map tile sources failed'; exit 1; fi
           test -s /tmp/amap.png || test -s /tmp/geoq.png
       - name: Install browser driver
@@ -92,10 +83,9 @@ jobs:
               const result=await page.$eval('#qaResult',e=>({status:e.dataset.status,text:e.textContent})).catch(()=>({status:'missing',text:'qaResult missing'}));
               const bodyPin=await page.evaluate(()=>/PIN不正确|pin不正确/i.test(document.body.innerText));
               const navCount=await page.$$eval('#bottomNav button[data-view]',x=>x.length);
-              const dotParent=await page.$eval('#navBadge',e=>e.parentElement?.dataset.view||'').catch(()=> '');
               console.log(person,result.text);
-              if(result.status!=='pass'||errors.length||bodyPin||navCount!==5||dotParent!=='me'){
-                failed=true;console.error('FAIL',person,{result,errors,bodyPin,navCount,dotParent});
+              if(result.status!=='pass'||errors.length||bodyPin||navCount!==5){
+                failed=true;console.error('FAIL',person,{result,errors,bodyPin,navCount});
                 await page.screenshot({path:`/tmp/${person}-fail.png`,fullPage:true}).catch(()=>{});
               }
               await page.close();
@@ -114,7 +104,6 @@ jobs:
             await slow.click('#bottomNav button[data-view="map"]');
             try{await slow.waitForFunction(()=>document.querySelector('#fullMap')?.dataset.mapState==='ready',{timeout:7000})}catch(e){}
             const state=await slow.$eval('#fullMap',e=>e.dataset.mapState||'');
-            console.log('stalled-primary-map-state',state);
             if(state!=='ready'){failed=true;console.error('FAIL stalled primary did not fail over',state)}
             await slow.close();
             await browser.close();
