@@ -13,7 +13,9 @@ jobs:
         with:
           node-version: '20'
       - name: JavaScript syntax
-        run: node --check app-v4.js
+        run: |
+          node --check app-v4.js
+          node --check geo-throttle.js
       - name: Required files and links
         shell: bash
         run: |
@@ -21,10 +23,31 @@ jobs:
           test -s app-v4.html
           test -s app-v4.css
           test -s app-v4.js
+          test -s geo-throttle.js
           test -s avatars.js
           grep -q 'app-v4.html' index.html
           grep -q 'app-v4.js' app-v4.html
           grep -q 'app-v4.css' app-v4.html
+          grep -q 'geo-throttle.js' app-v4.html
           ! grep -q 'dashboard.html' index.html
           ! grep -q 'leaflet' index.html
           ! grep -q 'road-routes.json' index.html
+          ! grep -q 'dashboard.html' app-v4.html
+          ! grep -q 'precision-map-profile' app-v4.html
+      - name: Headless browser startup
+        shell: bash
+        run: |
+          python3 -m http.server 8000 >/tmp/cw-http.log 2>&1 &
+          SERVER_PID=$!
+          trap 'kill $SERVER_PID || true' EXIT
+          sleep 1
+          CHROME="$(command -v google-chrome || command -v chromium || command -v chromium-browser || true)"
+          if [ -z "$CHROME" ]; then
+            echo 'Chrome binary not present; static and syntax checks already passed.'
+            exit 0
+          fi
+          timeout 25s "$CHROME" --headless=new --no-sandbox --disable-gpu --disable-dev-shm-usage --virtual-time-budget=3500 --dump-dom 'http://127.0.0.1:8000/app-v4.html?person=%E7%91%9E%E5%AD%90' >/tmp/cw-dom.html 2>/tmp/cw-chrome.log || true
+          grep -q '3秒关键信息' /tmp/cw-dom.html
+          grep -q 'id="bottomNav"' /tmp/cw-dom.html
+          grep -q 'id="mapOverlay"' /tmp/cw-dom.html
+          ! grep -q '地图正在加载，请稍后重试' /tmp/cw-dom.html
