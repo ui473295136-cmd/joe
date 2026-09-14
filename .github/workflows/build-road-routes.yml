@@ -1,0 +1,44 @@
+name: Build road route geometry
+on:
+  push:
+    paths:
+      - '.github/workflows/build-road-routes.yml'
+jobs:
+  routes:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Fetch OSRM route geometry
+        run: |
+          python - <<'PY'
+          import json, urllib.request
+          days = {
+            "0": [(104.441,30.312),(103.00,29.98)],
+            "1": [(103.00,29.98),(102.23,29.92),(101.96,30.05),(101.80,30.06),(101.49,30.04)],
+            "2": [(101.49,30.04),(101.54,30.32),(101.50,30.55),(101.89,30.88),(101.92,30.89)],
+            "3": [(101.89,30.88),(102.36,30.99),(102.84,31.09),(102.89,31.10)],
+            "4": [(102.89,31.10),(103.18,31.04),(103.48,31.06),(103.62,31.00),(104.441,30.312)],
+            "5": [(104.441,30.312),(104.441,30.312)]
+          }
+          out={}
+          for k,pts in days.items():
+            if len(set(pts))==1:
+              out[k]={"coordinates":[list(pts[0]),list(pts[0])],"distance":0,"duration":0,"source":"static"}
+              continue
+            coords=';'.join(f'{lon},{lat}' for lon,lat in pts)
+            url=f'https://router.project-osrm.org/route/v1/driving/{coords}?overview=full&geometries=geojson&steps=false&continue_straight=false'
+            req=urllib.request.Request(url,headers={'User-Agent':'chuanxi-roadtrip-2026/1.0'})
+            with urllib.request.urlopen(req,timeout=60) as r:
+              data=json.load(r)
+            if data.get('code')!='Ok' or not data.get('routes'):
+              raise RuntimeError(f'OSRM failed day {k}: {data}')
+            rr=data['routes'][0]
+            out[k]={"coordinates":rr['geometry']['coordinates'],"distance":rr['distance'],"duration":rr['duration'],"source":"OSRM/OpenStreetMap"}
+          with open('road-routes.json','w',encoding='utf-8') as f:
+            json.dump(out,f,ensure_ascii=False,separators=(',',':'))
+          print(json.dumps({k:{'points':len(v['coordinates']),'km':round(v['distance']/1000,1)} for k,v in out.items()},ensure_ascii=False,indent=2))
+          PY
+      - uses: actions/upload-artifact@v4
+        with:
+          name: road-routes
+          path: road-routes.json
