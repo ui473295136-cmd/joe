@@ -29,10 +29,11 @@ jobs:
           node --check map-v5.js
           node --check qa-mock.js
           node --check qa-probe.js
+          node --check qa-ci.js
       - name: Required files and links
         shell: bash
         run: |
-          for f in index.html app-v4.html app-v4.css app-v4.js auth-guard.js geo-throttle.js minimal-v1.js minimal-v1.css profile-sync-v2.js profile-sync-v2.css profile-upload-v3.js admin-switch-v1.js ledger-ack-v1.js itinerary-live-v1.js itinerary-live-v1.css daily-card-v1.js daily-card-v1.css map-v5.js map-v5.css qa-mock.js qa-probe.js avatars.js manifest.webmanifest icon.svg sw.js road-routes.json; do test -s "$f"; done
+          for f in index.html app-v4.html app-v4.css app-v4.js auth-guard.js geo-throttle.js minimal-v1.js minimal-v1.css profile-sync-v2.js profile-sync-v2.css profile-upload-v3.js admin-switch-v1.js ledger-ack-v1.js itinerary-live-v1.js itinerary-live-v1.css daily-card-v1.js daily-card-v1.css map-v5.js map-v5.css qa-mock.js qa-probe.js qa-ci.js avatars.js manifest.webmanifest icon.svg sw.js road-routes.json; do test -s "$f"; done
           grep -q 'trip-auth' index.html
           grep -q 'auth-guard.js' app-v4.html
           grep -q 'app-v4.js' app-v4.html
@@ -46,7 +47,7 @@ jobs:
           ! grep -q 'dashboard.html' index.html
           grep -q 'data-view="me".*navBadge' app-v4.html
           grep -q "chuanxi-2026-v31" sw.js
-      - name: Auth backend status
+      - name: Production backend read checks
         shell: bash
         run: |
           for PERSON in '瑞子' '航子' '普子' '辉子'; do
@@ -54,6 +55,7 @@ jobs:
             OUT=$(curl -fsS --max-time 10 -X POST 'https://wpfqcztbxxarsrruuuce.supabase.co/functions/v1/trip-auth' -H 'content-type: application/json' --data "$BODY")
             echo "$OUT" | grep -q '"configured"'
           done
+          curl -fsS --max-time 10 -X POST 'https://wpfqcztbxxarsrruuuce.supabase.co/functions/v1/trip-profile' -H 'content-type: application/json' --data '{"trip_slug":"chuanxi2026","action":"list_profiles","payload":{}}' | grep -q '"profiles"'
       - name: Map tile connectivity
         shell: bash
         run: |
@@ -68,83 +70,7 @@ jobs:
           test -s /tmp/amap.png || test -s /tmp/geoq.png
       - name: Install browser driver
         run: npm install --no-save --ignore-scripts puppeteer-core@24.16.0
-      - name: PIN interaction QA
-        shell: bash
-        run: |
-          python3 -m http.server 8001 >/tmp/cw-auth-http.log 2>&1 &
-          SERVER_PID=$!
-          trap 'kill $SERVER_PID || true' EXIT
-          sleep 1
-          export CHROME="$(command -v google-chrome || command -v chromium || command -v chromium-browser)"
-          node <<'NODE'
-          const puppeteer=require('puppeteer-core');
-          const chrome=process.env.CHROME;
-          const okJson=(req,obj,status=200)=>req.respond({status,contentType:'application/json',body:JSON.stringify(obj)});
-          const tap=async(page,pin)=>{for(const n of pin){await page.click(`#keypad button[data-key="${n}"]`);await new Promise(r=>setTimeout(r,40))}};
-          async function makePage(browser,mode){
-            const page=await browser.newPage();let setupCalls=0,verifyCalls=0;
-            await page.setViewport({width:390,height:844,deviceScaleFactor:3,isMobile:true,hasTouch:true});
-            await page.setRequestInterception(true);
-            page.on('request',req=>{
-              const u=req.url();
-              if(u.includes('/functions/v1/trip-auth')){
-                let b={};try{b=JSON.parse(req.postData()||'{}')}catch{}
-                if(b.action==='status')return okJson(req,{configured:mode!=='setup',locked:false,remaining_attempts:5,failed_attempts:0});
-                if(b.action==='setup'){setupCalls++;return okJson(req,{ok:true,token:'setup-token-abcdefghijklmnopqrstuvwxyz',expires_at:new Date(Date.now()+3600000).toISOString()})}
-                if(b.action==='verify'){
-                  verifyCalls++;
-                  if(mode==='wrong'){
-                    if(verifyCalls>=5)return okJson(req,{error:'密码错误，已锁定20分钟',code:'locked',lock_seconds:1200,remaining_attempts:0},423);
-                    return okJson(req,{error:'密码错误',code:'wrong_pin',remaining_attempts:5-verifyCalls},401)
-                  }
-                  return okJson(req,{ok:true,token:'verify-token-abcdefghijklmnopqrstuvwxyz',expires_at:new Date(Date.now()+3600000).toISOString()})
-                }
-                if(b.action==='validate')return okJson(req,{valid:true,expires_at:new Date(Date.now()+3600000).toISOString()});
-                return okJson(req,{ok:true})
-              }
-              if(u.includes('wpfqcztbxxarsrruuuce.supabase.co/functions/v1/'))return okJson(req,{expenses:[],repayments:[],profiles:[],person_positions:[],logs:[],ledger_acks:[],bookings:[],memories:[],emergency_contacts:[]});
-              req.continue();
-            });
-            return {page,getSetup:()=>setupCalls,getVerify:()=>verifyCalls};
-          }
-          (async()=>{
-            const browser=await puppeteer.launch({executablePath:chrome,headless:true,args:['--no-sandbox','--disable-dev-shm-usage','--disable-gpu']});
-            let failed=false;
-            {
-              const {page,getSetup}=await makePage(browser,'setup');
-              await page.goto('http://127.0.0.1:8001/',{waitUntil:'domcontentloaded'});
-              await page.click('[data-name="普子"]');
-              await page.waitForFunction(()=>document.querySelector('#authTitle')?.textContent.includes('设置密码'));
-              await tap(page,'1234');await tap(page,'1234');
-              await page.waitForSelector('#setupActions.show');
-              await page.click('#setupCancel');await new Promise(r=>setTimeout(r,80));
-              const hidden=await page.$eval('#authOverlay',e=>!e.classList.contains('show'));
-              if(getSetup()!==0||!hidden){failed=true;console.error('FAIL setup cancel must not write',getSetup(),hidden)}
-              await page.click('[data-name="普子"]');await page.waitForFunction(()=>document.querySelector('#authTitle')?.textContent.includes('设置密码'));
-              await tap(page,'2468');await tap(page,'2468');await page.waitForSelector('#setupActions.show');await page.click('#setupConfirm');
-              await page.waitForFunction(()=>location.href.includes('app-v4.html'),{timeout:4000}).catch(()=>{});
-              if(getSetup()!==1){failed=true;console.error('FAIL setup confirm must write once',getSetup())}
-              await page.close();
-            }
-            {
-              const {page,getVerify}=await makePage(browser,'wrong');
-              await page.goto('http://127.0.0.1:8001/',{waitUntil:'domcontentloaded'});await page.click('[data-name="辉子"]');await page.waitForFunction(()=>document.querySelector('#authTitle')?.textContent.includes('请输入'));
-              for(let i=0;i<5;i++){await tap(page,'9999');if(i<4)await page.waitForFunction(n=>document.querySelector('#authMsg')?.textContent.includes(`还剩 ${n} 次机会`),{},4-i);else await page.waitForFunction(()=>document.querySelector('#authMsg')?.textContent.includes('已锁定'))}
-              const disabled=await page.$$eval('#keypad button[data-key]',x=>x.every(b=>b.disabled));
-              if(getVerify()!==5||!disabled){failed=true;console.error('FAIL five errors must lock',getVerify(),disabled)}
-              await page.close();
-            }
-            {
-              const {page,getVerify}=await makePage(browser,'ok');
-              await page.goto('http://127.0.0.1:8001/',{waitUntil:'domcontentloaded'});await page.click('[data-name="航子"]');await page.waitForFunction(()=>document.querySelector('#authTitle')?.textContent.includes('请输入'));
-              await tap(page,'2468');await page.waitForFunction(()=>location.href.includes('app-v4.html'),{timeout:4000}).catch(()=>{});
-              if(getVerify()!==1){failed=true;console.error('FAIL correct four digits must auto verify',getVerify())}
-              await page.close();
-            }
-            await browser.close();if(failed)process.exit(1);console.log('PIN_QA_PASS');
-          })().catch(e=>{console.error(e);process.exit(1)});
-          NODE
-      - name: Four identity mobile regression QA
+      - name: Full four-identity browser regression
         shell: bash
         run: |
           python3 -m http.server 8000 >/tmp/cw-http.log 2>&1 &
@@ -152,56 +78,4 @@ jobs:
           trap 'kill $SERVER_PID || true' EXIT
           sleep 1
           export CHROME="$(command -v google-chrome || command -v chromium || command -v chromium-browser)"
-          node <<'NODE'
-          const puppeteer=require('puppeteer-core');
-          const chrome=process.env.CHROME;
-          const people=['瑞子','航子','普子','辉子'];
-          const tiny=Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=','base64');
-          (async()=>{
-            const browser=await puppeteer.launch({executablePath:chrome,headless:true,args:['--no-sandbox','--disable-dev-shm-usage','--disable-gpu']});
-            let failed=false;
-            for(const person of people){
-              const page=await browser.newPage();
-              await page.setViewport({width:390,height:844,deviceScaleFactor:3,isMobile:true,hasTouch:true});
-              const errors=[];
-              page.on('pageerror',e=>errors.push('pageerror:'+e.message));
-              page.on('console',m=>{if(m.type()==='error'&&!m.text().includes('net::ERR'))errors.push('console:'+m.text())});
-              await page.setRequestInterception(true);
-              page.on('request',req=>{
-                const u=req.url();
-                if(u.includes('webrd0')||u.includes('map.geoq.cn')) return req.respond({status:200,contentType:'image/png',body:tiny});
-                req.continue();
-              });
-              const url=`http://127.0.0.1:8000/app-v4.html?person=${encodeURIComponent(person)}&qa=1`;
-              await page.goto(url,{waitUntil:'domcontentloaded',timeout:20000});
-              try{await page.waitForFunction(()=>document.querySelector('#qaResult')?.dataset.status,{timeout:32000})}catch(e){}
-              const result=await page.$eval('#qaResult',e=>({status:e.dataset.status,text:e.textContent})).catch(()=>({status:'missing',text:'qaResult missing'}));
-              const bodyPin=await page.evaluate(()=>/PIN不正确|pin不正确/i.test(document.body.innerText));
-              const visibleNav=await page.$$eval('#bottomNav button[data-view]:not([hidden])',x=>x.length);
-              console.log(person,result.text);
-              if(result.status!=='pass'||errors.length||bodyPin||visibleNav!==4){
-                failed=true;console.error('FAIL',person,{result,errors,bodyPin,visibleNav});
-                await page.screenshot({path:`/tmp/${person}-fail.png`,fullPage:true}).catch(()=>{});
-              }
-              await page.close();
-            }
-            const slow=await browser.newPage();
-            await slow.setViewport({width:390,height:844,deviceScaleFactor:3,isMobile:true,hasTouch:true});
-            await slow.setRequestInterception(true);
-            slow.on('request',req=>{
-              const u=req.url();
-              if(u.includes('webrd0')) return setTimeout(()=>req.abort('timedout').catch(()=>{}),2600);
-              if(u.includes('map.geoq.cn')) return req.respond({status:200,contentType:'image/png',body:tiny});
-              req.continue();
-            });
-            await slow.goto('http://127.0.0.1:8000/app-v4.html?person=%E7%91%9E%E5%AD%90&qa=1',{waitUntil:'domcontentloaded',timeout:20000});
-            await slow.waitForSelector('#quickMapBtn',{timeout:10000});
-            await slow.click('#quickMapBtn');
-            try{await slow.waitForFunction(()=>['ready','fallback'].includes(document.querySelector('#fullMap')?.dataset.mapState),{timeout:8000})}catch(e){}
-            const state=await slow.$eval('#fullMap',e=>e.dataset.mapState||'');
-            if(!['ready','fallback'].includes(state)){failed=true;console.error('FAIL stalled primary did not fail over',state)}
-            await slow.close();
-            await browser.close();
-            if(failed)process.exit(1);
-          })().catch(e=>{console.error(e);process.exit(1)});
-          NODE
+          QA_BASE='http://127.0.0.1:8000' node qa-ci.js
