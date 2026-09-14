@@ -9,7 +9,7 @@ const click=el=>{if(!el)return false;el.dispatchEvent(new MouseEvent('click',{bu
 async function run(){
   const d=new Date().toLocaleDateString('sv-SE',{timeZone:'Asia/Shanghai'});localStorage.setItem(`cw-daily-${ME}-${d}`,'1');
   localStorage.setItem('cw-lastpos-v4',JSON.stringify({lat:39.814313,lon:116.577886,accuracy:8,altitude:42,time:Date.now()}));
-  await waitFor(()=>!$('#app')?.hidden,5000);await waitFor(()=>$('#nextTripCard')&&$('#simpleItinerary')&&$('#identitySwitcher'),9000);await waitFor(()=>document.documentElement.classList.contains('profile-sync-ready'),9000);
+  await waitFor(()=>!$('#app')?.hidden,5000);await waitFor(()=>$('#nextTripCard')&&$('#simpleItinerary')&&$('#identitySwitcher'),9000);await waitFor(()=>document.documentElement.classList.contains('profile-sync-ready'),9000);await waitFor(()=>$('#cwCurrentWeather'),5000);
   ok('页面启动',!!$('#app')&&!$('#app').hidden);
   ok('身份标题',document.title.includes(ME),document.title);
   ok('底部只显示4项',$$('#bottomNav button[data-view]:not([hidden])').length===4,String($$('#bottomNav button[data-view]:not([hidden])').length));
@@ -19,10 +19,15 @@ async function run(){
   ok('已移除现在去哪',!$('#decisionHub'));
   ok('现在页有下一程',!!$('#nextTripCard')&&/下一程|下一站/.test($('#nextTripCard').innerText));
   ok('现在页保留地图入口',!!$('#quickMapBtn'));
+  ok('当前天气卡',!!$('#cwCurrentWeather')&&/实时天气/.test($('#cwCurrentWeather').innerText));
+  ok('静态辉子头像存在',!!window.CHUANXI_AVATARS?.['辉']);
   const payer=$('#expPayer');ok('默认付款人正确',payer?.value===ME,payer?.value||'');
-  click($('#bottomNav button[data-view="today"]'));await sleep(100);
+  click($('#bottomNav button[data-view="today"]'));await waitFor(()=>$('#cwRoutePanel .cw-route-svg'),7000);
   ok('6天滑动行程',$$('#simpleItinerary [data-day]').length===6,String($$('#simpleItinerary [data-day]').length));
-  click($('#simpleItinerary [data-day="2"]'));await sleep(60);ok('可切换每日行程',$('#simpleItinerary')?.innerText.includes('塔公'));
+  ok('行程路线图',!!$('#cwRoutePanel .cw-route-svg'));
+  ok('路线分段距离时间',$$('#cwRoutePanel .cw-seg').length>=2,String($$('#cwRoutePanel .cw-seg').length));
+  ok('6天天气状态',$$('#simpleItinerary .cw-daywx').length===6,String($$('#simpleItinerary .cw-daywx').length));
+  click($('#simpleItinerary [data-day="2"]'));await sleep(180);ok('可切换每日行程',$('#simpleItinerary')?.innerText.includes('塔公'));
   click($('#bottomNav button[data-view="trip"]'));await sleep(120);
   ok('记账页有快速记账',!!$('#view-trip #expenseForm'));
   ok('记账页有我的账本',!!$('#view-trip #meMoney'));
