@@ -16,6 +16,7 @@ jobs:
         run: |
           node --check app-v4.js
           node --check geo-throttle.js
+          node --check decision-v1.js
       - name: Required files and links
         shell: bash
         run: |
@@ -24,11 +25,15 @@ jobs:
           test -s app-v4.css
           test -s app-v4.js
           test -s geo-throttle.js
+          test -s decision-v1.js
+          test -s decision-v1.css
           test -s avatars.js
           grep -q 'app-v4.html' index.html
           grep -q 'app-v4.js' app-v4.html
           grep -q 'app-v4.css' app-v4.html
           grep -q 'geo-throttle.js' app-v4.html
+          grep -q 'decision-v1.js' geo-throttle.js
+          grep -q 'decision-v1.css' geo-throttle.js
           ! grep -q 'dashboard.html' index.html
           ! grep -q 'leaflet' index.html
           ! grep -q 'road-routes.json' index.html
@@ -46,8 +51,10 @@ jobs:
             echo 'Chrome binary not present; static and syntax checks already passed.'
             exit 0
           fi
-          timeout 25s "$CHROME" --headless=new --no-sandbox --disable-gpu --disable-dev-shm-usage --virtual-time-budget=3500 --dump-dom 'http://127.0.0.1:8000/app-v4.html?person=%E7%91%9E%E5%AD%90' >/tmp/cw-dom.html 2>/tmp/cw-chrome.log || true
+          timeout 30s "$CHROME" --headless=new --no-sandbox --disable-gpu --disable-dev-shm-usage --virtual-time-budget=5000 --dump-dom 'http://127.0.0.1:8000/app-v4.html?person=%E7%91%9E%E5%AD%90' >/tmp/cw-dom.html 2>/tmp/cw-chrome.log || true
           grep -q '3秒关键信息' /tmp/cw-dom.html
           grep -q 'id="bottomNav"' /tmp/cw-dom.html
           grep -q 'id="mapOverlay"' /tmp/cw-dom.html
+          grep -q 'id="decisionHub"' /tmp/cw-dom.html
+          grep -q 'id="unreadControl"' /tmp/cw-dom.html
           ! grep -q '地图正在加载，请稍后重试' /tmp/cw-dom.html
