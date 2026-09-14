@@ -1,4 +1,4 @@
-const CACHE='chuanxi-2026-v23';
+const CACHE='chuanxi-2026-v24';
 const CORE=['./','./index.html','./app-v4.html','./app-v4.css','./app-v4.js','./geo-throttle.js','./decision-v1.css','./decision-v1.js','./map-v5.css','./map-v5.js','./ux-v5.css','./ux-v5.js','./qa-mock.js','./qa-probe.js','./avatars.js','./manifest.webmanifest','./icon.svg'];
 self.addEventListener('install',e=>e.waitUntil(caches.open(CACHE).then(c=>c.addAll(CORE)).then(()=>self.skipWaiting())));
 self.addEventListener('activate',e=>e.waitUntil(caches.keys().then(keys=>Promise.all(keys.filter(k=>k!==CACHE).map(k=>caches.delete(k)))).then(()=>self.clients.claim())));
