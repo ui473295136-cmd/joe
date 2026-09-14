@@ -9,13 +9,13 @@ const $=s=>document.querySelector(s),$$=s=>[...document.querySelectorAll(s)];
 let profiles=[];
 let busy=false;
 const channel='BroadcastChannel' in window?new BroadcastChannel('cw-profile-sync'):null;
-function esc(s){return String(s??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]))}
+function esc(s){return String(s??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot',"'":'&#39;'}[m]))}
 function toast(msg){const el=$('#toast');if(el){el.textContent=msg;el.classList.add('show');clearTimeout(el._pt);el._pt=setTimeout(()=>el.classList.remove('show'),2400)}else console.log(msg)}
 function api(action,payload={}){const c=new AbortController(),t=setTimeout(()=>c.abort(),10000);return fetch(ENDPOINT,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({trip_slug:TRIP,action,payload}),signal:c.signal}).then(async r=>{clearTimeout(t);const j=await r.json().catch(()=>({}));if(!r.ok)throw new Error(j.error||'同步失败');return j}).catch(e=>{clearTimeout(t);throw e})}
 function profile(p){return profiles.find(x=>x.person===p)||{person:p,nickname:p,role:DEFAULT_ROLE[p]||'',avatar_url:null}}
 function mergeProfile(x){if(!x?.person)return;const i=profiles.findIndex(p=>p.person===x.person);if(i>=0)profiles[i]={...profiles[i],...x};else profiles.push(x)}
 function cssUrl(bg){const m=String(bg||'').match(/url\(["']?(.*?)["']?\)/);return m?m[1]:''}
-function fallbackUrl(p){const seed=$(`#avatarSeeds .avatar[data-person="${p}"]`);if(!seed)return'';return cssUrl(getComputedStyle(seed).backgroundImage||seed.style.backgroundImage)}
+function fallbackUrl(p){const direct=window.CHUANXI_AVATARS?.[p[0]]||window.CW_AVATARS?.[p[0]]||'';if(direct)return direct;const seed=$(`#avatarSeeds .avatar[data-person="${p}"]`);if(!seed)return'';return cssUrl(getComputedStyle(seed).backgroundImage||seed.style.backgroundImage)}
 function avatarUrl(p){return profile(p).avatar_url||fallbackUrl(p)||''}
 function paintAvatar(el,p){if(!el)return;const u=avatarUrl(p);el.dataset.person=p;el.textContent=u?'':p[0];if(u){el.style.backgroundImage=`url("${u.replace(/"/g,'%22')}")`;el.style.backgroundSize='cover';el.style.backgroundPosition='center';el.style.color='transparent'}else{el.style.backgroundImage='';el.style.color=''}}
 function paintAll(){
@@ -27,7 +27,6 @@ function paintAll(){
   const nick=$('#nicknameInput');if(nick&&document.activeElement!==nick)nick.value=me.nickname||ME;
   const roleInput=$('#roleInput');if(roleInput&&document.activeElement!==roleInput)roleInput.value=me.role||DEFAULT_ROLE[ME]||'';
   renderIdentityGrid();
-  // 同步已经渲染好的四人卡片，不等下一轮30秒刷新
   $$('#teamStrip .team-one').forEach(card=>{const av=card.querySelector('.avatar[data-person]');if(!av)return;const p=av.dataset.person;paintAvatar(av,p);const b=card.querySelector('b');if(b)b.textContent=profile(p).nickname||p;const small=card.querySelector('small');if(small){const dot=small.querySelector('.dot');const onlineText=dot?.classList.contains('on')?'在线':'离线';small.innerHTML='';if(dot)small.appendChild(dot);small.append(`${onlineText} · ${profile(p).role||DEFAULT_ROLE[p]||''}`)}});
 }
 function renderIdentityGrid(){const el=$('#identityGrid');if(!el)return;el.innerHTML=TEAM.map(p=>{const x=profile(p);return`<button type="button" class="identity-item ${p===ME?'on':''}" data-switch-person="${p}"><span class="identity-avatar" data-profile-avatar="${p}">${p[0]}</span><span><b>${esc(x.nickname||p)}</b><small>${esc(x.role||DEFAULT_ROLE[p]||'')}</small></span>${p===ME?'<em>当前</em>':''}</button>`}).join('');TEAM.forEach(p=>paintAvatar(el.querySelector(`[data-profile-avatar="${p}"]`),p))}
