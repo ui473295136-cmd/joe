@@ -8,7 +8,7 @@ permissions:
 jobs:
   smoke:
     runs-on: ubuntu-latest
-    timeout-minutes: 8
+    timeout-minutes: 10
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -20,52 +20,84 @@ jobs:
           node --check geo-throttle.js
           node --check decision-v1.js
           node --check map-v5.js
+          node --check ux-v5.js
+          node --check qa-mock.js
           node --check qa-probe.js
       - name: Required files and links
         shell: bash
         run: |
-          test -s index.html
-          test -s app-v4.html
-          test -s app-v4.css
-          test -s app-v4.js
-          test -s geo-throttle.js
-          test -s decision-v1.js
-          test -s decision-v1.css
-          test -s map-v5.js
-          test -s map-v5.css
-          test -s ux-v5.css
-          test -s qa-probe.js
-          test -s avatars.js
+          for f in index.html app-v4.html app-v4.css app-v4.js geo-throttle.js decision-v1.js decision-v1.css map-v5.js map-v5.css ux-v5.css ux-v5.js qa-mock.js qa-probe.js avatars.js manifest.webmanifest icon.svg sw.js road-routes.json; do test -s "$f"; done
           grep -q 'app-v4.html' index.html
           grep -q 'app-v4.js' app-v4.html
           grep -q 'map-v5.js' app-v4.html
           grep -q 'map-v5.css' app-v4.html
           grep -q 'ux-v5.css' app-v4.html
+          grep -q 'qa-mock.js' app-v4.html
           grep -q 'qa-probe.js' app-v4.html
           grep -q 'decision-v1.js' geo-throttle.js
+          grep -q 'ux-v5.js' geo-throttle.js
           ! grep -q 'dashboard.html' index.html
           ! grep -q 'dashboard.html' app-v4.html
           ! grep -q 'precision-map-profile' app-v4.html
           grep -q 'data-view="me".*navBadge' app-v4.html
-      - name: Four identity browser QA
+          grep -q "chuanxi-2026-v23" sw.js
+      - name: Map tile connectivity
+        shell: bash
+        run: |
+          set +e
+          UA='Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X) AppleWebKit/605.1.15 Mobile/15E148'
+          curl -A "$UA" -fL --max-time 12 -sS 'https://webrd01.is.autonavi.com/appmaptile?style=7&lang=zh_cn&size=1&scale=1&x=53990&y=24854&z=16' -o /tmp/amap.png
+          A=$?
+          curl -A "$UA" -fL --max-time 12 -sS 'https://map.geoq.cn/ArcGIS/rest/services/ChinaOnlineCommunity/MapServer/tile/16/24854/53990' -o /tmp/geoq.png
+          B=$?
+          set -e
+          if [ "$A" -ne 0 ] && [ "$B" -ne 0 ]; then echo 'Both map tile sources failed'; exit 1; fi
+          test -s /tmp/amap.png || test -s /tmp/geoq.png
+      - name: Install browser driver
+        run: npm install --no-save --ignore-scripts puppeteer-core@24.16.0
+      - name: Four identity mobile regression QA
         shell: bash
         run: |
           python3 -m http.server 8000 >/tmp/cw-http.log 2>&1 &
           SERVER_PID=$!
           trap 'kill $SERVER_PID || true' EXIT
           sleep 1
-          CHROME="$(command -v google-chrome || command -v chromium || command -v chromium-browser || true)"
-          if [ -z "$CHROME" ]; then
-            echo 'Chrome binary not present; static and syntax checks already passed.'
-            exit 0
-          fi
-          for SPEC in '瑞子|%E7%91%9E%E5%AD%90' '航子|%E8%88%AA%E5%AD%90' '普子|%E6%99%AE%E5%AD%90' '辉子|%E8%BE%89%E5%AD%90'; do
-            IFS='|' read -r NAME ENC <<< "$SPEC"
-            echo "Testing $NAME"
-            timeout 35s "$CHROME" --headless=new --no-sandbox --disable-gpu --disable-dev-shm-usage --disable-background-networking --virtual-time-budget=12000 --dump-dom "http://127.0.0.1:8000/app-v4.html?person=${ENC}&qa=1" >"/tmp/cw-${NAME}.html" 2>"/tmp/cw-${NAME}.log" || true
-            grep -q "QA_PASS|${NAME}|" "/tmp/cw-${NAME}.html"
-            grep -q 'id="decisionHub"' "/tmp/cw-${NAME}.html"
-            grep -q 'id="unreadControl"' "/tmp/cw-${NAME}.html"
-            grep -q 'id="cwMapCanvas"' "/tmp/cw-${NAME}.html"
-            ! grep -q '地图正在加载，请稍后重试' "/tmp/cw-${NAME}.html"
-          done
+          export CHROME="$(command -v google-chrome || command -v chromium || command -v chromium-browser)"
+          node <<'NODE'
+          const puppeteer=require('puppeteer-core');
+          const chrome=process.env.CHROME;
+          const people=['瑞子','航子','普子','辉子'];
+          const tiny=Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=','base64');
+          (async()=>{
+            const browser=await puppeteer.launch({executablePath:chrome,headless:true,args:['--no-sandbox','--disable-dev-shm-usage','--disable-gpu']});
+            let failed=false;
+            for(const person of people){
+              const page=await browser.newPage();
+              await page.setViewport({width:390,height:844,deviceScaleFactor:3,isMobile:true,hasTouch:true});
+              const errors=[];
+              page.on('pageerror',e=>errors.push('pageerror:'+e.message));
+              page.on('console',m=>{if(m.type()==='error'&&!m.text().includes('net::ERR'))errors.push('console:'+m.text())});
+              await page.setRequestInterception(true);
+              page.on('request',req=>{
+                const u=req.url();
+                if(u.includes('webrd0')||u.includes('map.geoq.cn')) return req.respond({status:200,contentType:'image/png',body:tiny});
+                req.continue();
+              });
+              const url=`http://127.0.0.1:8000/app-v4.html?person=${encodeURIComponent(person)}&qa=1`;
+              await page.goto(url,{waitUntil:'domcontentloaded',timeout:20000});
+              try{await page.waitForFunction(()=>document.querySelector('#qaResult')?.dataset.status,{timeout:22000})}catch(e){}
+              const result=await page.$eval('#qaResult',e=>({status:e.dataset.status,text:e.textContent})).catch(()=>({status:'missing',text:'qaResult missing'}));
+              const bodyPin=await page.evaluate(()=>/PIN不正确|pin不正确/i.test(document.body.innerText));
+              const navCount=await page.$$eval('#bottomNav button[data-view]',x=>x.length);
+              const dotParent=await page.$eval('#navBadge',e=>e.parentElement?.dataset.view||'').catch(()=> '');
+              console.log(person,result.text);
+              if(result.status!=='pass'||errors.length||bodyPin||navCount!==5||dotParent!=='me'){
+                failed=true;console.error('FAIL',person,{result,errors,bodyPin,navCount,dotParent});
+                await page.screenshot({path:`/tmp/${person}-fail.png`,fullPage:true}).catch(()=>{});
+              }
+              await page.close();
+            }
+            await browser.close();
+            if(failed)process.exit(1);
+          })().catch(e=>{console.error(e);process.exit(1)});
+          NODE
