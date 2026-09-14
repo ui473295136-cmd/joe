@@ -29,7 +29,7 @@ async function run(){
   ok('记账页有已删除',!!$('#view-trip #trashCard'));
   ok('旅途花哨模块隐藏',$('#logs')?.closest('.card')?.classList.contains('minimal-hidden')&&$('#gallery')?.closest('.card')?.classList.contains('minimal-hidden')&&$('#bookings')?.closest('.card')?.classList.contains('minimal-hidden'));
   const before=$$('#ledgerList .ledger-item').length,del=$('#ledgerList [data-ledger="del-exp"]');if(del){click(del);await sleep(50);ok('删除先弹确认',$('#safeDeleteDialog')?.classList.contains('show'));click($('#safeDeleteDialog [data-cancel-delete]'));await sleep(40);ok('取消不会删除',$$('#ledgerList .ledger-item').length===before);ok('取消后弹窗关闭',!$('#safeDeleteDialog')?.classList.contains('show'))}else ok('删除确认测试',true,'当前无可删除账单');
-  click($('#trashToggle'));await waitFor(()=>!$('#trashList')?.hidden,1200);ok('已删除可展开',!$('#trashList')?.hidden);ok('已删除有恢复入口',!!$('#trashList [data-restore]'));
+  click($('#trashToggle'));await waitFor(()=>!$('#trashList')?.hidden,1200);ok('已删除可展开',!$('#trashList')?.hidden);await waitFor(()=>$('#trashList [data-restore]'),2500);ok('已删除有恢复入口',!!$('#trashList [data-restore]'));
   click($('#bottomNav button[data-view="me"]'));await sleep(120);
   ok('我的只保留个人资料',!!$('#view-me #profileAvatar')&&!!$('#nicknameInput')&&!!$('#changeAvatar'));
   ok('我的不再堆账本',!$('#view-me #ledgerList')&&!$('#view-me #expenseForm'));
