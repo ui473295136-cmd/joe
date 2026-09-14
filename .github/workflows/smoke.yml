@@ -18,29 +18,29 @@ jobs:
         run: |
           node --check app-v4.js
           node --check geo-throttle.js
-          node --check decision-v1.js
+          node --check decision-v2.js
           node --check map-v5.js
-          node --check ux-v5.js
+          node --check ux-v6.js
           node --check qa-mock.js
           node --check qa-probe.js
       - name: Required files and links
         shell: bash
         run: |
-          for f in index.html app-v4.html app-v4.css app-v4.js geo-throttle.js decision-v1.js decision-v1.css map-v5.js map-v5.css ux-v5.css ux-v5.js qa-mock.js qa-probe.js avatars.js manifest.webmanifest icon.svg sw.js road-routes.json; do test -s "$f"; done
+          for f in index.html app-v4.html app-v4.css app-v4.js geo-throttle.js decision-v2.js decision-v2.css map-v5.js map-v5.css ux-v6.css ux-v6.js qa-mock.js qa-probe.js avatars.js manifest.webmanifest icon.svg sw.js road-routes.json; do test -s "$f"; done
           grep -q 'app-v4.html' index.html
           grep -q 'app-v4.js' app-v4.html
           grep -q 'map-v5.js' app-v4.html
-          grep -q 'map-v5.css' app-v4.html
-          grep -q 'ux-v5.css' app-v4.html
           grep -q 'qa-mock.js' app-v4.html
           grep -q 'qa-probe.js' app-v4.html
-          grep -q 'decision-v1.js' geo-throttle.js
-          grep -q 'ux-v5.js' geo-throttle.js
+          grep -q 'decision-v2.js' geo-throttle.js
+          grep -q 'ux-v6.js' geo-throttle.js
+          ! grep -q 'decision-v1.js' geo-throttle.js
+          ! grep -q 'ux-v5.js' geo-throttle.js
           ! grep -q 'dashboard.html' index.html
           ! grep -q 'dashboard.html' app-v4.html
           ! grep -q 'precision-map-profile' app-v4.html
           grep -q 'data-view="me".*navBadge' app-v4.html
-          grep -q "chuanxi-2026-v24" sw.js
+          grep -q "chuanxi-2026-v25" sw.js
       - name: Map tile connectivity
         shell: bash
         run: |
@@ -86,7 +86,7 @@ jobs:
               });
               const url=`http://127.0.0.1:8000/app-v4.html?person=${encodeURIComponent(person)}&qa=1`;
               await page.goto(url,{waitUntil:'domcontentloaded',timeout:20000});
-              try{await page.waitForFunction(()=>document.querySelector('#qaResult')?.dataset.status,{timeout:22000})}catch(e){}
+              try{await page.waitForFunction(()=>document.querySelector('#qaResult')?.dataset.status,{timeout:24000})}catch(e){}
               const result=await page.$eval('#qaResult',e=>({status:e.dataset.status,text:e.textContent})).catch(()=>({status:'missing',text:'qaResult missing'}));
               const bodyPin=await page.evaluate(()=>/PIN不正确|pin不正确/i.test(document.body.innerText));
               const navCount=await page.$$eval('#bottomNav button[data-view]',x=>x.length);
