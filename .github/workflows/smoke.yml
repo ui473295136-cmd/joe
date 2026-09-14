@@ -17,9 +17,13 @@ jobs:
       - name: JavaScript syntax
         run: |
           node --check app-v4.js
+          node --check auth-guard.js
           node --check geo-throttle.js
           node --check minimal-v1.js
           node --check profile-sync-v2.js
+          node --check profile-upload-v3.js
+          node --check admin-switch-v1.js
+          node --check ledger-ack-v1.js
           node --check itinerary-live-v1.js
           node --check daily-card-v1.js
           node --check map-v5.js
@@ -28,18 +32,28 @@ jobs:
       - name: Required files and links
         shell: bash
         run: |
-          for f in index.html app-v4.html app-v4.css app-v4.js geo-throttle.js minimal-v1.js minimal-v1.css profile-sync-v2.js profile-sync-v2.css itinerary-live-v1.js itinerary-live-v1.css daily-card-v1.js daily-card-v1.css map-v5.js map-v5.css qa-mock.js qa-probe.js avatars.js manifest.webmanifest icon.svg sw.js road-routes.json; do test -s "$f"; done
-          grep -q 'app-v4.html' index.html
+          for f in index.html app-v4.html app-v4.css app-v4.js auth-guard.js geo-throttle.js minimal-v1.js minimal-v1.css profile-sync-v2.js profile-sync-v2.css profile-upload-v3.js admin-switch-v1.js ledger-ack-v1.js itinerary-live-v1.js itinerary-live-v1.css daily-card-v1.js daily-card-v1.css map-v5.js map-v5.css qa-mock.js qa-probe.js avatars.js manifest.webmanifest icon.svg sw.js road-routes.json; do test -s "$f"; done
+          grep -q 'trip-auth' index.html
+          grep -q 'auth-guard.js' app-v4.html
           grep -q 'app-v4.js' app-v4.html
           grep -q 'map-v5.js' app-v4.html
-          grep -q 'minimal-v1.js' geo-throttle.js
-          grep -q 'profile-sync-v2.js' geo-throttle.js
+          grep -q 'profile-upload-v3.js' geo-throttle.js
+          grep -q 'admin-switch-v1.js' geo-throttle.js
+          grep -q 'ledger-ack-v1.js' geo-throttle.js
           grep -q 'daily-card-v1.js' geo-throttle.js
           ! grep -q 'decision-v2.js' geo-throttle.js
           ! grep -q 'ux-v6.js' geo-throttle.js
           ! grep -q 'dashboard.html' index.html
           grep -q 'data-view="me".*navBadge' app-v4.html
-          grep -q "chuanxi-2026-v30" sw.js
+          grep -q "chuanxi-2026-v31" sw.js
+      - name: Auth backend status
+        shell: bash
+        run: |
+          for PERSON in '瑞子' '航子' '普子' '辉子'; do
+            BODY=$(printf '{"trip_slug":"chuanxi2026","action":"status","payload":{"person":"%s"}}' "$PERSON")
+            OUT=$(curl -fsS --max-time 10 -X POST 'https://wpfqcztbxxarsrruuuce.supabase.co/functions/v1/trip-auth' -H 'content-type: application/json' --data "$BODY")
+            echo "$OUT" | grep -q '"configured"'
+          done
       - name: Map tile connectivity
         shell: bash
         run: |
@@ -84,7 +98,7 @@ jobs:
               });
               const url=`http://127.0.0.1:8000/app-v4.html?person=${encodeURIComponent(person)}&qa=1`;
               await page.goto(url,{waitUntil:'domcontentloaded',timeout:20000});
-              try{await page.waitForFunction(()=>document.querySelector('#qaResult')?.dataset.status,{timeout:28000})}catch(e){}
+              try{await page.waitForFunction(()=>document.querySelector('#qaResult')?.dataset.status,{timeout:32000})}catch(e){}
               const result=await page.$eval('#qaResult',e=>({status:e.dataset.status,text:e.textContent})).catch(()=>({status:'missing',text:'qaResult missing'}));
               const bodyPin=await page.evaluate(()=>/PIN不正确|pin不正确/i.test(document.body.innerText));
               const visibleNav=await page.$$eval('#bottomNav button[data-view]:not([hidden])',x=>x.length);
