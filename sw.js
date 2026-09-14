@@ -1,4 +1,4 @@
-const CACHE='chuanxi-2026-v37';
+const CACHE='chuanxi-2026-v38';
 const CORE=['./','./index.html','./app-v4.html','./app-v4.css','./app-v4.js','./auth-guard.js','./geo-throttle.js','./minimal-v1.css','./minimal-v1.js','./profile-sync-v2.css','./profile-sync-v2.js','./profile-upload-v3.js','./admin-switch-v1.js','./ledger-ack-v1.js','./itinerary-live-v1.css','./itinerary-live-v1.js','./daily-card-v1.css','./daily-card-v1.js','./travel-assist-v1.css','./travel-assist-v1.js','./travel-assist-dayfix-v1.js','./map-state-guard-v1.js','./social-v1.css','./social-v1.js','./social-qa-mock-v1.js','./map-v5.css','./map-v5.js','./qa-mock.js','./qa-probe.js','./avatars.js','./manifest.webmanifest','./icon.svg'];
 self.addEventListener('install',e=>e.waitUntil(caches.open(CACHE).then(c=>c.addAll(CORE)).then(()=>self.skipWaiting())));
 self.addEventListener('activate',e=>e.waitUntil(caches.keys().then(keys=>Promise.all(keys.filter(k=>k!==CACHE).map(k=>caches.delete(k)))).then(()=>self.clients.claim())));
