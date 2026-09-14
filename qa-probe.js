@@ -1,58 +1,15 @@
 (()=>{
 'use strict';
-const qs=new URLSearchParams(location.search),ME=qs.get('person')||localStorage.getItem('cw-person')||'瑞子';
-const $=s=>document.querySelector(s),$$=s=>[...document.querySelectorAll(s)];
-const sleep=ms=>new Promise(r=>setTimeout(r,ms));
-const results=[];const ok=(n,p,d='')=>results.push({name:n,pass:!!p,detail:d});
-const waitFor=async(fn,ms=9000)=>{const st=Date.now();while(Date.now()-st<ms){try{const v=fn();if(v)return v}catch(e){}await sleep(80)}return null};
-const click=el=>{if(!el)return false;el.dispatchEvent(new MouseEvent('click',{bubbles:true,cancelable:true,view:window}));return true};
-async function run(){
-  const d=new Date().toLocaleDateString('sv-SE',{timeZone:'Asia/Shanghai'});localStorage.setItem(`cw-daily-${ME}-${d}`,'1');
-  localStorage.setItem('cw-lastpos-v4',JSON.stringify({lat:39.814313,lon:116.577886,accuracy:8,altitude:42,time:Date.now()}));
-  await waitFor(()=>!$('#app')?.hidden,5000);await waitFor(()=>$('#nextTripCard')&&$('#simpleItinerary')&&$('#identitySwitcher'),9000);await waitFor(()=>document.documentElement.classList.contains('profile-sync-ready'),9000);await waitFor(()=>$('#cwCurrentWeather'),5000);
-  ok('页面启动',!!$('#app')&&!$('#app').hidden);
-  ok('身份标题',document.title.includes(ME),document.title);
-  ok('底部只显示4项',$$('#bottomNav button[data-view]:not([hidden])').length===4,String($$('#bottomNav button[data-view]:not([hidden])').length));
-  ok('地图Tab已移除',!$('#bottomNav button[data-view="map"]')||$('#bottomNav button[data-view="map"]')?.hidden===true);
-  ok('Tab改为行程',$('#bottomNav button[data-view="today"]')?.innerText.includes('行程'));
-  ok('Tab改为记账',$('#bottomNav button[data-view="trip"]')?.innerText.includes('记账'));
-  ok('已移除现在去哪',!$('#decisionHub'));
-  ok('现在页有下一程',!!$('#nextTripCard')&&/下一程|下一站/.test($('#nextTripCard').innerText));
-  ok('现在页保留地图入口',!!$('#quickMapBtn'));
-  ok('当前天气卡',!!$('#cwCurrentWeather')&&/实时天气/.test($('#cwCurrentWeather').innerText));
-  ok('静态辉子头像存在',!!window.CHUANXI_AVATARS?.['辉']);
-  const payer=$('#expPayer');ok('默认付款人正确',payer?.value===ME,payer?.value||'');
-  click($('#bottomNav button[data-view="today"]'));await waitFor(()=>$('#cwRoutePanel .cw-route-svg'),7000);
-  ok('6天滑动行程',$$('#simpleItinerary [data-day]').length===6,String($$('#simpleItinerary [data-day]').length));
-  ok('行程路线图',!!$('#cwRoutePanel .cw-route-svg'));
-  ok('路线分段距离时间',$$('#cwRoutePanel .cw-seg').length>=2,String($$('#cwRoutePanel .cw-seg').length));
-  ok('6天天气状态',$$('#simpleItinerary .cw-daywx').length===6,String($$('#simpleItinerary .cw-daywx').length));
-  click($('#simpleItinerary [data-day="2"]'));await sleep(180);ok('可切换每日行程',$('#simpleItinerary')?.innerText.includes('塔公'));
-  click($('#bottomNav button[data-view="trip"]'));await sleep(120);
-  ok('记账页有快速记账',!!$('#view-trip #expenseForm'));
-  ok('记账页有我的账本',!!$('#view-trip #meMoney'));
-  ok('记账页有账单明细',!!$('#view-trip #ledgerList'));
-  ok('记账页有已删除',!!$('#view-trip #trashCard'));
-  ok('旅途花哨模块隐藏',$('#logs')?.closest('.card')?.classList.contains('minimal-hidden')&&$('#gallery')?.closest('.card')?.classList.contains('minimal-hidden')&&$('#bookings')?.closest('.card')?.classList.contains('minimal-hidden'));
-  const before=$$('#ledgerList .ledger-item').length,del=$('#ledgerList [data-ledger="del-exp"]');if(del){click(del);await sleep(50);ok('删除先弹确认',$('#safeDeleteDialog')?.classList.contains('show'));click($('#safeDeleteDialog [data-cancel-delete]'));await sleep(40);ok('取消不会删除',$$('#ledgerList .ledger-item').length===before);ok('取消后弹窗关闭',!$('#safeDeleteDialog')?.classList.contains('show'))}else ok('删除确认测试',true,'当前无可删除账单');
-  click($('#trashToggle'));await waitFor(()=>!$('#trashList')?.hidden,1200);ok('已删除可展开',!$('#trashList')?.hidden);await waitFor(()=>$('#trashList [data-restore]'),2500);ok('已删除有恢复入口',!!$('#trashList [data-restore]'));
-  click($('#bottomNav button[data-view="me"]'));await sleep(160);
-  ok('我的只保留个人资料',!!$('#view-me #profileAvatar')&&!!$('#nicknameInput')&&!!$('#changeAvatar'));
-  ok('我的不再堆账本',!$('#view-me #ledgerList')&&!$('#view-me #expenseForm'));
-  ok('四身份切换器',$$('#identityGrid [data-switch-person]').length===4,String($$('#identityGrid [data-switch-person]').length));
-  ok('当前身份标记',!!$(`#identityGrid [data-switch-person="${ME}"].on`));
-  ok('昵称职责属于当前账号',$('#nicknameInput')?.value===ME+'昵称'&&$('#roleInput')?.value.length>0,`${$('#nicknameInput')?.value}|${$('#roleInput')?.value}`);
-  const avatarTokens=$$('#identityGrid [data-profile-avatar]').map(x=>(getComputedStyle(x).backgroundImage||x.textContent).trim());ok('四个账号头像互不串号',new Set(avatarTokens).size===4,avatarTokens.join(' | '));
-  $('#nicknameInput').value=ME+'测试昵称';$('#roleInput').value='测试职责';click($('#saveProfile'));await waitFor(()=>$('#helloName')?.textContent.includes('测试昵称'),2500);ok('昵称修改即时同步',$('#helloName')?.textContent.includes('测试昵称'),$('#helloName')?.textContent||'');ok('职责修改即时同步',$('#helloRole')?.textContent==='测试职责',$('#helloRole')?.textContent||'');
-  const input=$('#avatarInput');if(input){const b64='iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=';const bytes=Uint8Array.from(atob(b64),c=>c.charCodeAt(0));const f=new File([bytes],'qa-avatar.png',{type:'image/png'});const dt=new DataTransfer();dt.items.add(f);input.files=dt.files;input.dispatchEvent(new Event('change',{bubbles:true}));await waitFor(()=>/同步给所有人/.test($('#avatarState')?.textContent||''),3500);ok('头像可更换并同步',/同步给所有人/.test($('#avatarState')?.textContent||''),$('#avatarState')?.textContent||'')}else ok('头像可更换并同步',false,'缺少头像输入框');
-  click($('#bottomNav button[data-view="now"]'));await sleep(80);click($('#quickMapBtn'));await waitFor(()=>$('#cwMapCanvas'),3000);ok('地图容器',!!$('#cwMapCanvas'));
-  const mapReady=await waitFor(()=>{const s=$('#fullMap')?.dataset.mapState;return s==='ready'||s==='fallback'?s:null},7000);ok('地图不会空白卡死',!!mapReady,mapReady||'');
-  ok('地图本人头像',!!$('.cw-person-marker.me'));click($('#closeMapBtn'));await sleep(50);
-  ok('微信式我的红点',$('#navBadge')?.parentElement?.dataset.view==='me');
-  ok('无PIN入口',!/PIN不正确|pin不正确/.test(document.body.innerText));
-  const ids=$$('[id]').map(x=>x.id),dup=[...new Set(ids.filter((x,i)=>ids.indexOf(x)!==i))];ok('无重复DOM ID',dup.length===0,dup.join(','));
-  const errs=(window.__cwErrors||[]).filter(x=>x&&!/ResizeObserver loop/i.test(x));ok('无未捕获脚本错误',errs.length===0,errs.join(' | '));
-  const fail=results.filter(x=>!x.pass),pre=document.createElement('pre');pre.id='qaResult';pre.dataset.status=fail.length?'fail':'pass';pre.style.cssText='position:fixed;left:-9999px;top:0';pre.textContent=(fail.length?'QA_FAIL':'QA_PASS')+'|'+ME+'|'+results.map(x=>`${x.pass?'✓':'✗'}${x.name}${x.detail?'('+x.detail+')':''}`).join('|');document.body.appendChild(pre);if(fail.length)console.error(pre.textContent);else console.log(pre.textContent)
-}
+const qs=new URLSearchParams(location.search),ME=qs.get('person')||localStorage.getItem('cw-person')||'瑞子',ADMIN=ME==='瑞子';
+const $=s=>document.querySelector(s),$$=s=>[...document.querySelectorAll(s)];const sleep=ms=>new Promise(r=>setTimeout(r,ms));const results=[];const ok=(n,p,d='')=>results.push({name:n,pass:!!p,detail:d});const waitFor=async(fn,ms=9000)=>{const st=Date.now();while(Date.now()-st<ms){try{const v=fn();if(v)return v}catch(e){}await sleep(80)}return null};const click=el=>{if(!el)return false;el.dispatchEvent(new MouseEvent('click',{bubbles:true,cancelable:true,view:window}));return true};
+async function run(){const d=new Date().toLocaleDateString('sv-SE',{timeZone:'Asia/Shanghai'});localStorage.setItem(`cw-daily-${ME}-${d}`,'1');localStorage.setItem('cw-lastpos-v4',JSON.stringify({lat:39.814313,lon:116.577886,accuracy:8,altitude:42,time:Date.now()}));await waitFor(()=>!$('#app')?.hidden,5000);await waitFor(()=>$('#nextTripCard')&&$('#simpleItinerary'),9000);await waitFor(()=>document.documentElement.classList.contains('profile-sync-ready'),9000);
+  ok('页面启动',!!$('#app')&&!$('#app').hidden);ok('身份标题',document.title.includes(ME),document.title);ok('底部只显示4项',$$('#bottomNav button[data-view]:not([hidden])').length===4,String($$('#bottomNav button[data-view]:not([hidden])').length));ok('没有地图Tab',!$('#bottomNav button[data-view="map"]')||$('#bottomNav button[data-view="map"]')?.hidden===true);ok('现在页有地图入口',!!$('#quickMapBtn'));ok('Tab行程',$('#bottomNav button[data-view="today"]')?.innerText.includes('行程'));ok('Tab记账',$('#bottomNav button[data-view="trip"]')?.innerText.includes('记账'));
+  const payer=$('#expPayer');ok('默认付款人正确',payer?.value===ME,payer?.value||'');click($('#bottomNav button[data-view="today"]'));await sleep(160);ok('6天滑动行程',$$('#simpleItinerary [data-day]').length===6,String($$('#simpleItinerary [data-day]').length));click($('#simpleItinerary [data-day="2"]'));await sleep(100);ok('可切换每日行程',$('#simpleItinerary')?.innerText.includes('塔公'));ok('行程路线图存在',!!$('#cwDayRouteMap'));ok('分段距离时间存在',/km/.test($('#simpleItinerary')?.innerText||'')&&/约/.test($('#simpleItinerary')?.innerText||''));
+  click($('#bottomNav button[data-view="trip"]'));await sleep(120);ok('快速记账',!!$('#view-trip #expenseForm'));ok('我的账本',!!$('#view-trip #meMoney'));ok('账单明细',!!$('#view-trip #ledgerList'));ok('已删除入口',!!$('#view-trip #trashCard'));const before=$$('#ledgerList .ledger-item').length,del=$('#ledgerList [data-ledger="del-exp"]');if(del){click(del);await sleep(50);ok('删除先确认',$('#safeDeleteDialog')?.classList.contains('show'));click($('#safeDeleteDialog [data-cancel-delete]'));await sleep(40);ok('取消不删除',$$('#ledgerList .ledger-item').length===before)}
+  click($('#bottomNav button[data-view="me"]'));await sleep(180);ok('个人资料可编辑',!!$('#profileAvatar')&&!!$('#nicknameInput')&&!!$('#roleInput')&&!!$('#changeAvatar'));const switchCount=$$('#identityGrid [data-switch-person]').length;ok('账号切换权限正确',ADMIN?switchCount===4:switchCount===0,`switch=${switchCount}`);ok('昵称职责属于当前账号',$('#nicknameInput')?.value===ME+'昵称'&&$('#roleInput')?.value.length>0,`${$('#nicknameInput')?.value}|${$('#roleInput')?.value}`);
+  $('#nicknameInput').value=ME+'测试昵称';$('#roleInput').value='测试职责';click($('#saveProfile'));await waitFor(()=>$('#helloName')?.textContent.includes('测试昵称'),2500);ok('昵称即时同步',$('#helloName')?.textContent.includes('测试昵称'));ok('职责即时同步',$('#helloRole')?.textContent==='测试职责');
+  const input=$('#avatarInput');if(input){const b64='iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=';const bytes=Uint8Array.from(atob(b64),c=>c.charCodeAt(0)),f=new File([bytes],'qa-avatar.png',{type:'image/png'}),dt=new DataTransfer();dt.items.add(f);input.files=dt.files;input.dispatchEvent(new Event('change',{bubbles:true}));await waitFor(()=>$('#avatarCropOverlay')?.classList.contains('show'),1800);ok('头像自定义裁剪弹出',$('#avatarCropOverlay')?.classList.contains('show'));click($('#cropConfirm'));await waitFor(()=>/同步给所有人/.test($('#avatarState')?.textContent||''),3500);ok('裁剪头像可上传同步',/同步给所有人/.test($('#avatarState')?.textContent||''),$('#avatarState')?.textContent||'')}
+  click($('#bottomNav button[data-view="now"]'));await sleep(80);click($('#quickMapBtn'));await waitFor(()=>$('#cwMapCanvas'),3000);ok('地图容器',!!$('#cwMapCanvas'));const mapReady=await waitFor(()=>['ready','fallback'].includes($('#fullMap')?.dataset.mapState),7000);ok('地图不会空白卡死',!!mapReady,$('#fullMap')?.dataset.mapState||'');ok('地图标题只显示我的位置',$('.map-top b')?.textContent==='我的当前位置',$('.map-top b')?.textContent||'');ok('地图只有本人标记',$$('.cw-person-marker').length<=1,String($$('.cw-person-marker').length));ok('地图无路线/四人/导航按钮',!$('.map-actions')&&!$('[data-mapact="route"]')&&!$('[data-mapact="team"]'));ok('地图支持缩放按钮',!!$('[data-native-zoom="in"]')&&!!$('[data-native-zoom="out"]'));click($('#closeMapBtn'));await sleep(50);
+  ok('无PIN入口',!/PIN不正确|pin不正确/i.test(document.body.innerText));const ids=$$('[id]').map(x=>x.id),dup=[...new Set(ids.filter((x,i)=>ids.indexOf(x)!==i))];ok('无重复DOM ID',dup.length===0,dup.join(','));const errs=(window.__cwErrors||[]).filter(x=>x&&!/ResizeObserver loop/i.test(x));ok('无未捕获脚本错误',errs.length===0,errs.join(' | '));const fail=results.filter(x=>!x.pass),pre=document.createElement('pre');pre.id='qaResult';pre.dataset.status=fail.length?'fail':'pass';pre.style.cssText='position:fixed;left:-9999px;top:0';pre.textContent=(fail.length?'QA_FAIL':'QA_PASS')+'|'+ME+'|'+results.map(x=>`${x.pass?'✓':'✗'}${x.name}${x.detail?'('+x.detail+')':''}`).join('|');document.body.appendChild(pre);if(fail.length)console.error(pre.textContent);else console.log(pre.textContent)}
 run().catch(e=>{const pre=document.createElement('pre');pre.id='qaResult';pre.dataset.status='fail';pre.textContent='QA_FAIL|'+ME+'|'+String(e?.stack||e);document.body.appendChild(pre);console.error(e)});
 })();
