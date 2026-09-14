@@ -29,6 +29,8 @@ jobs:
           node --check travel-assist-v1.js
           node --check travel-assist-dayfix-v1.js
           node --check map-state-guard-v1.js
+          node --check social-v1.js
+          node --check social-qa-mock-v1.js
           node --check map-v5.js
           node --check qa-mock.js
           node --check qa-probe.js
@@ -36,7 +38,7 @@ jobs:
       - name: Required files and links
         shell: bash
         run: |
-          for f in index.html app-v4.html app-v4.css app-v4.js auth-guard.js geo-throttle.js minimal-v1.js minimal-v1.css profile-sync-v2.js profile-sync-v2.css profile-upload-v3.js admin-switch-v1.js ledger-ack-v1.js itinerary-live-v1.js itinerary-live-v1.css daily-card-v1.js daily-card-v1.css travel-assist-v1.js travel-assist-v1.css travel-assist-dayfix-v1.js map-state-guard-v1.js map-v5.js map-v5.css qa-mock.js qa-probe.js qa-ci.js avatars.js manifest.webmanifest icon.svg sw.js road-routes.json; do test -s "$f"; done
+          for f in index.html app-v4.html app-v4.css app-v4.js auth-guard.js geo-throttle.js minimal-v1.js minimal-v1.css profile-sync-v2.js profile-sync-v2.css profile-upload-v3.js admin-switch-v1.js ledger-ack-v1.js itinerary-live-v1.js itinerary-live-v1.css daily-card-v1.js daily-card-v1.css travel-assist-v1.js travel-assist-v1.css travel-assist-dayfix-v1.js map-state-guard-v1.js social-v1.js social-v1.css social-qa-mock-v1.js map-v5.js map-v5.css qa-mock.js qa-probe.js qa-ci.js avatars.js manifest.webmanifest icon.svg sw.js road-routes.json; do test -s "$f"; done
           grep -q 'trip-auth' index.html
           grep -q 'auth-guard.js' app-v4.html
           grep -q 'app-v4.js' app-v4.html
@@ -48,11 +50,13 @@ jobs:
           grep -q 'travel-assist-v1.js' geo-throttle.js
           grep -q 'travel-assist-dayfix-v1.js' geo-throttle.js
           grep -q 'map-state-guard-v1.js' geo-throttle.js
+          grep -q 'social-qa-mock-v1.js' geo-throttle.js
+          grep -q 'social-v1.js' geo-throttle.js
           ! grep -q 'decision-v2.js' geo-throttle.js
           ! grep -q 'ux-v6.js' geo-throttle.js
           ! grep -q 'dashboard.html' index.html
           grep -q 'data-view="me".*navBadge' app-v4.html
-          grep -q "chuanxi-2026-v33" sw.js
+          grep -q "chuanxi-2026-v35" sw.js
       - name: Production backend read checks
         shell: bash
         run: |
@@ -63,6 +67,7 @@ jobs:
           done
           curl -fsS --max-time 10 -X POST 'https://wpfqcztbxxarsrruuuce.supabase.co/functions/v1/trip-profile' -H 'content-type: application/json' --data '{"trip_slug":"chuanxi2026","action":"list_profiles","payload":{}}' | grep -q '"profiles"'
           curl -sS --max-time 10 -X POST 'https://wpfqcztbxxarsrruuuce.supabase.co/functions/v1/trip-assist' -H 'content-type: application/json' --data '{"trip_slug":"chuanxi2026","action":"state","payload":{"person":"瑞子","token":"invalid"}}' | grep -q '登录已失效'
+          curl -sS --max-time 10 -X POST 'https://wpfqcztbxxarsrruuuce.supabase.co/functions/v1/trip-social' -H 'content-type: application/json' --data '{"trip_slug":"chuanxi2026","action":"state","payload":{"person":"瑞子","token":"invalid"}}' | grep -q '登录已失效'
       - name: Map tile connectivity
         shell: bash
         run: |
