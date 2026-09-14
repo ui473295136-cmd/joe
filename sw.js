@@ -1,5 +1,5 @@
-const CACHE='chuanxi-2026-v20';
-const CORE=['./','./index.html','./app-v4.html','./app-v4.css','./app-v4.js','./geo-throttle.js','./avatars.js','./manifest.webmanifest','./icon.svg'];
+const CACHE='chuanxi-2026-v21';
+const CORE=['./','./index.html','./app-v4.html','./app-v4.css','./app-v4.js','./geo-throttle.js','./decision-v1.css','./decision-v1.js','./avatars.js','./manifest.webmanifest','./icon.svg'];
 self.addEventListener('install',e=>e.waitUntil(caches.open(CACHE).then(c=>c.addAll(CORE)).then(()=>self.skipWaiting())));
 self.addEventListener('activate',e=>e.waitUntil(caches.keys().then(keys=>Promise.all(keys.filter(k=>k!==CACHE).map(k=>caches.delete(k)))).then(()=>self.clients.claim())));
 self.addEventListener('fetch',e=>{if(e.request.method!=='GET')return;const u=new URL(e.request.url);if(u.origin!==location.origin)return;const nav=e.request.mode==='navigate'||u.pathname.endsWith('/index.html')||u.pathname.endsWith('/app-v4.html');if(nav){e.respondWith(fetch(e.request).then(r=>{const c=r.clone();caches.open(CACHE).then(x=>x.put(e.request,c));return r}).catch(()=>caches.match(e.request).then(x=>x||caches.match('./app-v4.html'))));return}e.respondWith(caches.match(e.request).then(hit=>hit||fetch(e.request).then(r=>{if(r.ok&&['script','style','image','manifest'].includes(e.request.destination)){const c=r.clone();caches.open(CACHE).then(x=>x.put(e.request,c))}return r})))});
