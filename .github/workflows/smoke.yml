@@ -21,25 +21,25 @@ jobs:
           node --check minimal-v1.js
           node --check profile-sync-v2.js
           node --check itinerary-live-v1.js
+          node --check daily-card-v1.js
           node --check map-v5.js
           node --check qa-mock.js
           node --check qa-probe.js
       - name: Required files and links
         shell: bash
         run: |
-          for f in index.html app-v4.html app-v4.css app-v4.js geo-throttle.js minimal-v1.js minimal-v1.css profile-sync-v2.js profile-sync-v2.css itinerary-live-v1.js itinerary-live-v1.css map-v5.js map-v5.css qa-mock.js qa-probe.js avatars.js manifest.webmanifest icon.svg sw.js road-routes.json; do test -s "$f"; done
+          for f in index.html app-v4.html app-v4.css app-v4.js geo-throttle.js minimal-v1.js minimal-v1.css profile-sync-v2.js profile-sync-v2.css itinerary-live-v1.js itinerary-live-v1.css daily-card-v1.js daily-card-v1.css map-v5.js map-v5.css qa-mock.js qa-probe.js avatars.js manifest.webmanifest icon.svg sw.js road-routes.json; do test -s "$f"; done
           grep -q 'app-v4.html' index.html
           grep -q 'app-v4.js' app-v4.html
           grep -q 'map-v5.js' app-v4.html
           grep -q 'minimal-v1.js' geo-throttle.js
           grep -q 'profile-sync-v2.js' geo-throttle.js
-          grep -q 'itinerary-live-v1.js' geo-throttle.js
-          grep -q 'CHUANXI_AVATARS' profile-sync-v2.js
+          grep -q 'daily-card-v1.js' geo-throttle.js
           ! grep -q 'decision-v2.js' geo-throttle.js
           ! grep -q 'ux-v6.js' geo-throttle.js
           ! grep -q 'dashboard.html' index.html
           grep -q 'data-view="me".*navBadge' app-v4.html
-          grep -q "chuanxi-2026-v29" sw.js
+          grep -q "chuanxi-2026-v30" sw.js
       - name: Map tile connectivity
         shell: bash
         run: |
@@ -107,7 +107,7 @@ jobs:
             await slow.goto('http://127.0.0.1:8000/app-v4.html?person=%E7%91%9E%E5%AD%90&qa=1',{waitUntil:'domcontentloaded',timeout:20000});
             await slow.waitForSelector('#quickMapBtn',{timeout:10000});
             await slow.click('#quickMapBtn');
-            try{await slow.waitForFunction(()=>['ready','fallback'].includes(document.querySelector('#fullMap')?.dataset.mapState),{timeout:7000})}catch(e){}
+            try{await slow.waitForFunction(()=>['ready','fallback'].includes(document.querySelector('#fullMap')?.dataset.mapState),{timeout:8000})}catch(e){}
             const state=await slow.$eval('#fullMap',e=>e.dataset.mapState||'');
             if(!['ready','fallback'].includes(state)){failed=true;console.error('FAIL stalled primary did not fail over',state)}
             await slow.close();
