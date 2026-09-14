@@ -13,7 +13,7 @@ async function run(){
   ok('页面启动',!!$('#app')&&!$('#app').hidden);
   ok('身份标题',document.title.includes(ME),document.title);
   ok('底部只显示4项',$$('#bottomNav button[data-view]:not([hidden])').length===4,String($$('#bottomNav button[data-view]:not([hidden])').length));
-  ok('地图Tab已移除',$('#bottomNav button[data-view="map"]')?.hidden===true);
+  ok('地图Tab已移除',!$('#bottomNav button[data-view="map"]')||$('#bottomNav button[data-view="map"]')?.hidden===true);
   ok('Tab改为行程',$('#bottomNav button[data-view="today"]')?.innerText.includes('行程'));
   ok('Tab改为记账',$('#bottomNav button[data-view="trip"]')?.innerText.includes('记账'));
   ok('已移除现在去哪',!$('#decisionHub'));
