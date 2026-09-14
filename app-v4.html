@@ -9,10 +9,10 @@
 <title>川西反穿 2026</title>
 <link rel="manifest" href="./manifest.webmanifest">
 <link rel="icon" href="./icon.svg" type="image/svg+xml">
-<link rel="stylesheet" href="./app-v4.css?v=1">
+<link rel="stylesheet" href="./app-v4.css?v=2">
 </head>
 <body>
-<div id="boot" class="boot"><div class="bootmark">川</div><b>正在进入你的川西行程</b><span>只加载必要数据，地图按需打开</span></div>
+<div id="boot" class="boot"><div class="bootmark">川</div><b>正在进入你的川西行程</b><span>页面先显示，云端和地图随后加载</span></div>
 <header class="topbar">
   <div class="brand"><b>川西反穿 2026</b><span id="topSub">四人实时自驾系统</span></div>
   <button id="sosTop" class="sos-mini">SOS</button>
@@ -49,20 +49,15 @@
     <section class="card"><button id="switchIdentity" class="ghost full">切换身份</button></section>
   </section>
 </main>
-
-<nav class="bottom-nav" id="bottomNav" hidden>
-  <button class="on" data-view="now"><span>⌂</span>现在</button>
-  <button data-view="map"><span>⌖</span>地图</button>
-  <button data-view="today"><span>☀</span>今天</button>
-  <button data-view="trip"><span>◇</span>旅途<i id="navBadge"></i></button>
-  <button data-view="me"><span>●</span>我的</button>
-</nav>
-
+<nav class="bottom-nav" id="bottomNav" hidden><button class="on" data-view="now"><span>⌂</span>现在</button><button data-view="map"><span>⌖</span>地图</button><button data-view="today"><span>☀</span>今天</button><button data-view="trip"><span>◇</span>旅途<i id="navBadge"></i></button><button data-view="me"><span>●</span>我的</button></nav>
 <div class="overlay" id="mapOverlay" aria-hidden="true"><div class="map-shell"><div class="map-top"><div><b>四人实时位置</b><span id="fullMapStatus">按需加载地图，不影响主页速度</span></div><button id="closeMapBtn">×</button></div><div id="fullMap" class="full-map"><div id="mapLoader" class="map-loader"><b>正在打开地图</b><span>仅在这里加载交互式地图</span></div></div><div class="map-actions"><button data-mapact="me" class="primary">我的位置</button><button data-mapact="team">四人位置</button><button data-mapact="route">今日路线</button><button data-mapact="amap">高德导航</button></div></div></div>
 <div class="overlay" id="sosOverlay" aria-hidden="true"><div class="modal"><div class="modal-head"><div><span class="eyebrow red">紧急情况</span><h2>SOS 应急中心</h2></div><button data-close="sos">×</button></div><div id="sosLocation" class="sos-location">正在获取当前位置…</div><div class="sos-grid"><a href="tel:120">拨打 120</a><a href="tel:110">拨打 110</a><button id="nearHospital">附近医院</button><button id="nearRepair">附近修理厂</button></div><div id="emergencyList" class="emergency-list"></div></div></div>
 <div class="overlay" id="editOverlay" aria-hidden="true"><div class="modal"><div class="modal-head"><div><h2 id="editTitle">修改账目</h2></div><button data-close="edit">×</button></div><div id="editBody"></div></div></div>
 <div id="toast" class="toast"></div>
-<script src="./avatars.js?v=5"></script>
-<script src="./app-v4.js?v=1"></script>
-</body>
-</html>
+<div id="avatarSeeds" style="display:none"><i class="avatar" data-person="瑞子">瑞</i><i class="avatar" data-person="普子">普</i><i class="avatar" data-person="航子">航</i><i class="avatar" data-person="辉子">辉</i></div>
+<script>window.__CW_MO=window.MutationObserver;window.MutationObserver=class{constructor(){}observe(){}disconnect(){}};</script>
+<script src="./avatars.js?v=6"></script>
+<script>window.MutationObserver=window.__CW_MO;delete window.__CW_MO;</script>
+<script src="./app-v4.js?v=2"></script>
+<script>setTimeout(()=>document.getElementById('boot')?.classList.add('hide'),160);if('serviceWorker'in navigator)navigator.serviceWorker.register('./sw.js').catch(()=>{});</script>
+</body></html>
