@@ -30,7 +30,7 @@
     const scripts = ["./offline-v1.js?v=1", "./avatars.js?v=7"];
     if (window.CWSession.qa) scripts.push("./qa-mock.js?v=3");
     scripts.push(
-      "./geo-throttle.js?v=4",
+      "./geo-throttle.js?v=5",
       "./app-v4.js?v=4",
       "./map-v5.js?v=2",
       "./interaction-ux.js?v=1",
