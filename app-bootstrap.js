@@ -32,6 +32,7 @@
     scripts.push(
       "./geo-throttle.js?v=6",
       "./app-v4.js?v=4",
+      "./ledger-detail-v3.js?v=1",
       "./map-v5.js?v=2",
       "./interaction-ux.js?v=1",
     );
