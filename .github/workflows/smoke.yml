@@ -24,6 +24,8 @@ jobs:
           node --check avatar-interactions-v1.js
           node --check avatar-interactions-qa-mock-v1.js
           node --check qa-avatar-interactions.cjs
+          node --check trip-stage-v2.js
+          node --check qa-stage.js
           node --check minimal-v1.js
           node --check profile-sync-v2.js
           node --check profile-upload-v3.js
@@ -47,7 +49,7 @@ jobs:
       - name: Required files and links
         shell: bash
         run: |
-          for f in index.html app-v4.html app-v4.css app-v4.js auth-guard.js geo-throttle.js time-compat-v1.js driver-fun-v2.js driver-fun-v2.css avatar-interactions-v1.js avatar-interactions-v1.css avatar-interactions-qa-mock-v1.js qa-avatar-interactions.cjs minimal-v1.js minimal-v1.css profile-sync-v2.js profile-sync-v2.css profile-upload-v3.js admin-switch-v1.js ledger-ack-v1.js itinerary-live-v1.js itinerary-live-v1.css daily-card-v1.js daily-card-v1.css travel-assist-v1.js travel-assist-v1.css travel-assist-dayfix-v1.js map-state-guard-v1.js social-v1.js social-v1.css social-qa-mock-v1.js map-v5.js map-v5.css qa-mock.js qa-probe.js qa-ci.js avatars.js manifest.webmanifest icon.svg sw.js road-routes.json; do test -s "$f"; done
+          for f in index.html app-v4.html app-v4.css app-v4.js auth-guard.js geo-throttle.js time-compat-v1.js driver-fun-v2.js driver-fun-v2.css avatar-interactions-v1.js avatar-interactions-v1.css avatar-interactions-qa-mock-v1.js qa-avatar-interactions.cjs trip-stage-v2.js trip-stage-v2.css qa-stage.js minimal-v1.js minimal-v1.css profile-sync-v2.js profile-sync-v2.css profile-upload-v3.js admin-switch-v1.js ledger-ack-v1.js itinerary-live-v1.js itinerary-live-v1.css daily-card-v1.js daily-card-v1.css travel-assist-v1.js travel-assist-v1.css travel-assist-dayfix-v1.js map-state-guard-v1.js social-v1.js social-v1.css social-qa-mock-v1.js map-v5.js map-v5.css qa-mock.js qa-probe.js qa-ci.js avatars.js manifest.webmanifest icon.svg sw.js road-routes.json; do test -s "$f"; done
           for f in session-store.js login.js app-bootstrap.js interaction-ux.js interaction-ux.css; do test -s "$f"; done
           grep -q 'trip-auth' session-store.js
           grep -q 'login.js' index.html
@@ -60,6 +62,8 @@ jobs:
           grep -q 'avatar-interactions-v1.js' geo-throttle.js
           grep -q 'avatar-interactions-v1.css' geo-throttle.js
           grep -q 'avatar-interactions-qa-mock-v1.js' geo-throttle.js
+          grep -q 'trip-stage-v2.js' geo-throttle.js
+          grep -q 'trip-stage-v2.css' geo-throttle.js
           grep -q 'profile-sync-v2.js' geo-throttle.js
           ! grep -q 'profile-upload-v3.js' geo-throttle.js
           grep -q 'admin-switch-v1.js' geo-throttle.js
@@ -74,10 +78,11 @@ jobs:
           ! grep -q 'ux-v6.js' geo-throttle.js
           ! grep -q 'dashboard.html' index.html
           grep -q 'navBadge' app-v4.html
-          grep -q 'chuanxi-2026-v42' sw.js
+          grep -q 'chuanxi-2026-v43' sw.js
           grep -q 'time-compat-v1.js' sw.js
           grep -q 'driver-fun-v2.js' sw.js
           grep -q 'avatar-interactions-v1.js' sw.js
+          grep -q 'trip-stage-v2.js' sw.js
       - name: Session, API authorization and interaction regression
         run: npm ci --ignore-scripts && npm test
       - name: Production backend read checks
@@ -118,5 +123,6 @@ jobs:
           trap 'kill $SERVER_PID || true' EXIT
           sleep 1
           export CHROME="$(command -v google-chrome || command -v chromium || command -v chromium-browser)"
+          QA_BASE='http://127.0.0.1:8000' node qa-stage.js
           QA_BASE='http://127.0.0.1:8000' node qa-ci.js
           QA_BASE='http://127.0.0.1:8000' node qa-avatar-interactions.cjs
