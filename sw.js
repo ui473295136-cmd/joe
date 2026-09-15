@@ -1,4 +1,4 @@
-const CACHE = "chuanxi-2026-v45-ledger";
+const CACHE = "chuanxi-2026-v46-ledger";
 const RUNTIME = "chuanxi-2026-runtime-v3";
 const CORE = [
   "./",
@@ -31,6 +31,7 @@ const CORE = [
   "./travel-assist-dayfix-v1.js",
   "./trip-stage-v2.css",
   "./trip-stage-v2.js",
+  "./trip-stage-card-guard-v1.js",
   "./itinerary-header-sync-v1.js",
   "./map-state-guard-v1.js",
   "./social-v1.css",
