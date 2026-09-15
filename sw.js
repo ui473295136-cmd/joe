@@ -1,4 +1,4 @@
-const CACHE = "chuanxi-2026-v51-bulk-sync";
+const CACHE = "chuanxi-2026-v52-profile-live";
 const RUNTIME = "chuanxi-2026-runtime-v3";
 const CORE = [
   "./",
@@ -14,6 +14,7 @@ const CORE = [
   "./ledger-detail-v3.js",
   "./ledger-settlement-v4.js",
   "./sync-hub-v1.js",
+  "./profile-display-v1.js",
   "./map-open-watchdog-v1.js",
   "./auth-guard.js",
   "./geo-throttle.js",
