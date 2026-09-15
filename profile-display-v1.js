@@ -1,16 +1,29 @@
 (() => {
   "use strict";
   const TEAM = ["瑞子", "普子", "航子", "辉子"];
+  const ME =
+    new URLSearchParams(location.search).get("person") ||
+    localStorage.getItem("cw-person") ||
+    "瑞子";
   const profileMap = new Map();
+  const aliases = new Map(TEAM.map((p) => [p, new Set([p])]));
   const textTemplate = new WeakMap();
   const textRendered = new WeakMap();
   const attrTemplate = new WeakMap();
   const ATTRS = ["aria-label", "title", "alt"];
-  const hasPerson = (s) => TEAM.some((p) => String(s || "").includes(p));
-  const label = (p) => profileMap.get(p)?.nickname || window.CWProfiles?.get?.(p)?.nickname || p;
+  const allAliases = () =>
+    [...aliases.entries()]
+      .flatMap(([p, set]) => [...set].filter(Boolean).map((a) => [p, a]))
+      .sort((a, b) => b[1].length - a[1].length);
+  const hasPerson = (s) => {
+    const v = String(s || "");
+    return allAliases().some(([, a]) => v.includes(a));
+  };
+  const label = (p) =>
+    profileMap.get(p)?.nickname || window.CWProfiles?.get?.(p)?.nickname || p;
   const renderString = (s) => {
     let out = String(s ?? "");
-    for (const p of TEAM) out = out.split(p).join(label(p));
+    for (const [p, a] of allAliases()) out = out.split(a).join(label(p));
     return out;
   };
   function excludedText(node) {
@@ -71,6 +84,35 @@
       const p = el.dataset.profileAvatar || el.dataset.person;
       if (TEAM.includes(p)) window.CWProfiles?.paintAvatar?.(el, p);
     }
+    for (const p of TEAM) {
+      const u = window.CWProfiles?.imageUrl?.(p);
+      if (!u) continue;
+      root.querySelectorAll?.(`[data-social-person="${p}"] .cw-member-face img`).forEach((img) => {
+        if (img.src !== u) img.src = u;
+        img.alt = label(p);
+      });
+    }
+    const daily = document.querySelector("#cwDailyAvatar"),
+      dailyUrl = window.CWProfiles?.imageUrl?.(ME);
+    if (daily && dailyUrl) {
+      daily.style.backgroundImage = `url(${JSON.stringify(dailyUrl)})`;
+      daily.textContent = "";
+    }
+  }
+  function syncSocialCache(profiles) {
+    try {
+      const key = `cw-social-cache-${ME}`,
+        cached = JSON.parse(localStorage.getItem(key) || "null") || { saved: Date.now(), data: {} },
+        data = cached.data || {},
+        list = Array.isArray(data.profiles) ? [...data.profiles] : [];
+      for (const p of profiles) {
+        const i = list.findIndex((x) => x.person === p.person);
+        if (i >= 0) list[i] = { ...list[i], ...p };
+        else list.push(p);
+      }
+      data.profiles = list;
+      localStorage.setItem(key, JSON.stringify({ saved: Date.now(), data }));
+    } catch {}
   }
   function scan(root = document) {
     if (root.nodeType === Node.TEXT_NODE) renderText(root);
@@ -87,14 +129,20 @@
   }
   function rerender() {
     scan(document);
-    for (const p of TEAM) {
-      document.querySelectorAll(`.avatar[data-person="${p}"],[data-profile-avatar="${p}"]`).forEach((el) =>
-        window.CWProfiles?.paintAvatar?.(el, p),
-      );
-    }
+    paintKnownAvatars(document);
+    const dailyName = document.querySelector("#cwDailyName");
+    if (dailyName) dailyName.textContent = `${label(ME)}，今天注意这些`;
   }
   window.addEventListener("cw:profiles", (e) => {
-    for (const p of e.detail?.profiles || []) if (TEAM.includes(p.person)) profileMap.set(p.person, p);
+    const incoming = e.detail?.profiles || [];
+    for (const p of incoming) {
+      if (!TEAM.includes(p.person)) continue;
+      const old = profileMap.get(p.person);
+      if (old?.nickname) aliases.get(p.person).add(old.nickname);
+      if (p.nickname) aliases.get(p.person).add(p.nickname);
+      profileMap.set(p.person, p);
+    }
+    syncSocialCache(incoming);
     rerender();
     window.dispatchEvent(
       new CustomEvent("cw:profile-display", {
@@ -119,7 +167,8 @@
     attributes: true,
     attributeFilter: ATTRS,
   });
-  if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", () => scan(document), { once: true });
+  if (document.readyState === "loading")
+    document.addEventListener("DOMContentLoaded", () => scan(document), { once: true });
   else scan(document);
   window.CWProfileDisplay = { label, rerender };
 })();
