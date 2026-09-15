@@ -6,7 +6,7 @@ test("payer gets one-click approval and all ledger users get one-click read", as
   const { dom, w, d } = await app("辉子");
   try {
     await until(() => !!d.querySelector("#cwApproveAllBtn") && !!w.CWSyncHub);
-    await wait(80);
+    await until(() => /一键审批/.test(d.querySelector("#cwApproveAllBtn")?.textContent || ""));
     const approve = d.querySelector("#cwApproveAllBtn");
     const read = d.querySelector("#cwAckAllBtn");
     assert.match(approve.textContent, /一键审批/);
@@ -64,6 +64,8 @@ test("payer gets one-click approval and all ledger users get one-click read", as
     await until(() => calls.length === 1);
     assert.equal(calls[0].payload.person, "辉子");
     assert.equal(calls[0].action, "settle_all");
+    await until(() => /无需审批/.test(d.querySelector("#cwApproveAllBtn")?.textContent || ""));
+    await wait(220);
   } finally {
     dom.window.close();
   }
