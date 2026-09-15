@@ -1,4 +1,4 @@
-const CACHE = "chuanxi-2026-v40";
+const CACHE = "chuanxi-2026-v41";
 const CORE = [
   "./",
   "./index.html",
@@ -27,8 +27,8 @@ const CORE = [
   "./map-state-guard-v1.js",
   "./social-v1.css",
   "./social-v1.js",
-  "./driver-history-v1.css",
-  "./driver-history-v1.js",
+  "./driver-fun-v2.css",
+  "./driver-fun-v2.js",
   "./map-v5.css",
   "./map-v5.js",
   "./ux-v5.css",
