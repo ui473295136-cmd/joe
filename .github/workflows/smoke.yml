@@ -20,6 +20,7 @@ jobs:
           node --check ledger-detail-v3.js
           node --check ledger-settlement-v4.js
           node --check sync-hub-v1.js
+          node --check profile-display-v1.js
           node --check map-open-watchdog-v1.js
           node --check auth-guard.js
           node --check geo-throttle.js
@@ -59,7 +60,7 @@ jobs:
       - name: Required files and links
         shell: bash
         run: |
-          for f in index.html app-v4.html app-v4.css app-v4.js ledger-detail-v3.js ledger-settlement-v4.js sync-hub-v1.js map-open-watchdog-v1.js auth-guard.js geo-throttle.js time-compat-v1.js driver-fun-v2.js driver-fun-v2.css avatar-interactions-v1.js avatar-interactions-v1.css avatar-interactions-qa-mock-v1.js qa-avatar-interactions.cjs trip-stage-v2.js trip-stage-v2.css stage-tag-guard-v1.js trip-stage-card-guard-v1.js itinerary-header-sync-v1.js qa-stage.js ledger-v2.js ledger-v2.css qa-ledger-v2.cjs minimal-v1.js minimal-v1.css profile-sync-v2.js profile-sync-v2.css profile-upload-v3.js admin-switch-v1.js ledger-ack-v1.js itinerary-live-v1.js itinerary-live-v1.css daily-card-v1.js daily-card-v1.css travel-assist-v1.js travel-assist-v1.css travel-assist-dayfix-v1.js map-state-guard-v1.js social-v1.js social-v1.css social-qa-mock-v1.js map-v5.js map-v5.css qa-mock.js qa-probe.js qa-ci.js avatars.js manifest.webmanifest icon.svg sw.js road-routes.json; do test -s "$f"; done
+          for f in index.html app-v4.html app-v4.css app-v4.js ledger-detail-v3.js ledger-settlement-v4.js sync-hub-v1.js profile-display-v1.js map-open-watchdog-v1.js auth-guard.js geo-throttle.js time-compat-v1.js driver-fun-v2.js driver-fun-v2.css avatar-interactions-v1.js avatar-interactions-v1.css avatar-interactions-qa-mock-v1.js qa-avatar-interactions.cjs trip-stage-v2.js trip-stage-v2.css stage-tag-guard-v1.js trip-stage-card-guard-v1.js itinerary-header-sync-v1.js qa-stage.js ledger-v2.js ledger-v2.css qa-ledger-v2.cjs minimal-v1.js minimal-v1.css profile-sync-v2.js profile-sync-v2.css profile-upload-v3.js admin-switch-v1.js ledger-ack-v1.js itinerary-live-v1.js itinerary-live-v1.css daily-card-v1.js daily-card-v1.css travel-assist-v1.js travel-assist-v1.css travel-assist-dayfix-v1.js map-state-guard-v1.js social-v1.js social-v1.css social-qa-mock-v1.js map-v5.js map-v5.css qa-mock.js qa-probe.js qa-ci.js avatars.js manifest.webmanifest icon.svg sw.js road-routes.json; do test -s "$f"; done
           for f in session-store.js login.js app-bootstrap.js offline-v1.js interaction-ux.js interaction-ux.css; do test -s "$f"; done
           grep -q 'trip-auth' session-store.js
           grep -q 'login.js' index.html
@@ -69,11 +70,14 @@ jobs:
           grep -q 'ledger-detail-v3.js' app-bootstrap.js
           grep -q 'ledger-settlement-v4.js' app-bootstrap.js
           grep -q 'sync-hub-v1.js' app-bootstrap.js
+          grep -q 'profile-display-v1.js' app-bootstrap.js
           grep -q 'map-open-watchdog-v1.js' app-bootstrap.js
           grep -q 'map-v5.js' app-bootstrap.js
           grep -q 'offline-v1.js' app-bootstrap.js
           grep -q 'geo-throttle.js?v=6' app-bootstrap.js
           grep -q 'time-compat-v1.js' geo-throttle.js
+          grep -q 'profile-sync-v2.css?v=4' geo-throttle.js
+          grep -q 'profile-sync-v2.js?v=5' geo-throttle.js
           grep -q 'driver-fun-v2.js' geo-throttle.js
           grep -q 'avatar-interactions-v1.js' geo-throttle.js
           grep -q 'avatar-interactions-v1.css' geo-throttle.js
@@ -85,7 +89,6 @@ jobs:
           grep -q 'itinerary-header-sync-v1.js' geo-throttle.js
           grep -q 'ledger-v2.js?v=2' geo-throttle.js
           grep -q 'ledger-v2.css' geo-throttle.js
-          grep -q 'profile-sync-v2.js' geo-throttle.js
           ! grep -q 'profile-upload-v3.js' geo-throttle.js
           grep -q 'admin-switch-v1.js' geo-throttle.js
           grep -q 'ledger-ack-v1.js?v=2' geo-throttle.js
@@ -99,10 +102,11 @@ jobs:
           ! grep -q 'ux-v6.js' geo-throttle.js
           ! grep -q 'dashboard.html' index.html
           grep -q 'navBadge' app-v4.html
-          grep -q 'chuanxi-2026-v51-bulk-sync' sw.js
+          grep -q 'chuanxi-2026-v52-profile-live' sw.js
           grep -q 'ledger-detail-v3.js' sw.js
           grep -q 'ledger-settlement-v4.js' sw.js
           grep -q 'sync-hub-v1.js' sw.js
+          grep -q 'profile-display-v1.js' sw.js
           grep -q 'map-open-watchdog-v1.js' sw.js
           grep -q 'stage-tag-guard-v1.js' sw.js
           grep -q 'time-compat-v1.js' sw.js
