@@ -1,4 +1,4 @@
-const CACHE = "chuanxi-2026-v39";
+const CACHE = "chuanxi-2026-v40";
 const CORE = [
   "./",
   "./index.html",
@@ -10,6 +10,7 @@ const CORE = [
   "./app-v4.js",
   "./auth-guard.js",
   "./geo-throttle.js",
+  "./time-compat-v1.js",
   "./minimal-v1.css",
   "./minimal-v1.js",
   "./profile-sync-v2.css",
@@ -26,6 +27,8 @@ const CORE = [
   "./map-state-guard-v1.js",
   "./social-v1.css",
   "./social-v1.js",
+  "./driver-history-v1.css",
+  "./driver-history-v1.js",
   "./map-v5.css",
   "./map-v5.js",
   "./ux-v5.css",
