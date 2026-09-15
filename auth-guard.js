@@ -12,6 +12,11 @@
     window.__CW_AUTH_OK = true;
     window.dispatchEvent(new Event("cw-auth-ready"));
   };
+  const setAdmin = () =>
+    sessionStorage.setItem(
+      "cw-admin",
+      person === "瑞子" || auth.get("瑞子") ? "1" : "0",
+    );
   async function check() {
     if (!auth || !auth.PEOPLE.includes(person)) {
       location.replace("./");
@@ -22,7 +27,8 @@
       reveal();
       return;
     }
-    if (!auth.get(person)) {
+    const localSession = auth.get(person);
+    if (!localSession) {
       login();
       return;
     }
@@ -32,12 +38,16 @@
         login();
         return;
       }
-      sessionStorage.setItem(
-        "cw-admin",
-        person === "瑞子" || auth.get("瑞子") ? "1" : "0",
-      );
+      setAdmin();
       reveal();
     } catch {
+      // 无网络时，只要本机仍有未过期的登录记忆，就允许进入离线模式。
+      if (auth.get(person)) {
+        window.__CW_OFFLINE_AUTH = true;
+        setAdmin();
+        reveal();
+        return;
+      }
       const showError = () => {
         document.documentElement.classList.add("cw-auth-ready");
         const boot = document.getElementById("boot");
