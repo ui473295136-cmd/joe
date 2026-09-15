@@ -81,6 +81,7 @@
     style("./travel-assist-v1.css?v=1", "cw-travel-assist-style");
     style("./social-v1.css?v=2", "cw-social-style");
     style("./driver-fun-v2.css?v=1", "cw-driver-fun-style");
+    style("./avatar-interactions-v1.css?v=1", "cw-avatar-play-style");
     script("./time-compat-v1.js?v=1", "cw-time-compat");
     script("./minimal-v1.js?v=3", "cw-minimal");
     script("./profile-sync-v2.js?v=4", "cw-profile");
@@ -91,10 +92,13 @@
     script("./travel-assist-v1.js?v=1", "cw-travel-assist");
     script("./travel-assist-dayfix-v1.js?v=1", "cw-travel-assist-dayfix");
     script("./map-state-guard-v1.js?v=1", "cw-map-state-guard");
-    if (window.CWSession?.qa)
+    if (window.CWSession?.qa) {
       script("./social-qa-mock-v1.js?v=2", "cw-social-qa");
+      script("./avatar-interactions-qa-mock-v1.js?v=1", "cw-avatar-play-qa");
+    }
     script("./social-v1.js?v=2", "cw-social");
     script("./driver-fun-v2.js?v=1", "cw-driver-fun");
+    script("./avatar-interactions-v1.js?v=1", "cw-avatar-play");
   }
   if (document.readyState === "complete") setTimeout(loadExtras, 40);
   else
