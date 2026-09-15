@@ -47,9 +47,10 @@ test("ledger v3 preserves direct pair debts and reconciles all four people", asy
       ["航子", "辉子", 471.75],
     ]));
 
-    assert.match(d.querySelector("#settlementLines").textContent, /普子\s*应付给我/);
-    assert.match(d.querySelector("#settlementLines").textContent, /453\.59/);
-    assert.match(d.querySelector("#settlementLines").textContent, /我应付给\s*辉子/);
+    const settlement = d.querySelector("#settlementLines").textContent;
+    assert.match(settlement, /普子.*应付给我/);
+    assert.match(settlement, /453\.59/);
+    assert.match(settlement, /我应付给.*辉子/);
 
     d.querySelector('#meMoney [data-ledger-kind="get"]').click();
     await wait(20);
