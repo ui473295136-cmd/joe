@@ -1,10 +1,12 @@
-const CACHE = "chuanxi-2026-v43";
+const CACHE = "chuanxi-2026-v44-offline";
+const RUNTIME = "chuanxi-2026-runtime-v3";
 const CORE = [
   "./",
   "./index.html",
   "./login.js",
   "./session-store.js",
   "./app-bootstrap.js",
+  "./offline-v1.js",
   "./app-v4.html",
   "./app-v4.css",
   "./app-v4.js",
@@ -42,7 +44,9 @@ const CORE = [
   "./avatars.js",
   "./manifest.webmanifest",
   "./icon.svg",
+  "./road-routes.json",
 ];
+
 self.addEventListener("install", (event) =>
   event.waitUntil(
     caches
@@ -51,6 +55,7 @@ self.addEventListener("install", (event) =>
       .then(() => self.skipWaiting()),
   ),
 );
+
 self.addEventListener("activate", (event) =>
   event.waitUntil(
     caches
@@ -58,26 +63,86 @@ self.addEventListener("activate", (event) =>
       .then((keys) =>
         Promise.all(
           keys
-            .filter((key) => key.startsWith("chuanxi-2026-") && key !== CACHE)
+            .filter(
+              (key) =>
+                key.startsWith("chuanxi-2026-") &&
+                key !== CACHE &&
+                key !== RUNTIME,
+            )
             .map((key) => caches.delete(key)),
         ),
       )
       .then(() => self.clients.claim()),
   ),
 );
+
+async function trim(cache, max = 420) {
+  const keys = await cache.keys();
+  if (keys.length <= max) return;
+  await Promise.all(keys.slice(0, keys.length - max).map((key) => cache.delete(key)));
+}
+
+async function cacheFirst(request) {
+  const cache = await caches.open(RUNTIME);
+  const hit = await cache.match(request);
+  if (hit) return hit;
+  const response = await fetch(request);
+  if (response.ok || response.type === "opaque") {
+    await cache.put(request, response.clone());
+    trim(cache).catch(() => {});
+  }
+  return response;
+}
+
+async function networkFirstRuntime(request) {
+  const cache = await caches.open(RUNTIME);
+  try {
+    const response = await fetch(request);
+    if (response.ok || response.type === "opaque") {
+      await cache.put(request, response.clone());
+      trim(cache).catch(() => {});
+    }
+    return response;
+  } catch (error) {
+    const hit = await cache.match(request);
+    if (hit) return hit;
+    throw error;
+  }
+}
+
 self.addEventListener("fetch", (event) => {
   if (event.request.method !== "GET") return;
   const url = new URL(event.request.url);
-  if (url.origin !== location.origin) return;
   const navigation = event.request.mode === "navigate";
+
+  if (url.origin !== location.origin) {
+    const isMapTile =
+      /autonavi\.com$/.test(url.hostname) ||
+      /geoq\.cn$/.test(url.hostname);
+    const isWeather = url.hostname === "api.open-meteo.com";
+    const isTripAsset =
+      url.hostname.endsWith("supabase.co") ||
+      url.hostname.endsWith("supabase.in");
+    if (isMapTile || isTripAsset) {
+      event.respondWith(cacheFirst(event.request));
+      return;
+    }
+    if (isWeather) {
+      event.respondWith(networkFirstRuntime(event.request));
+      return;
+    }
+    return;
+  }
+
   if (
     !navigation &&
-    !["script", "style", "image", "manifest"].includes(
+    !["script", "style", "image", "manifest", "font"].includes(
       event.request.destination,
     ) &&
     !url.pathname.endsWith("/road-routes.json")
   )
     return;
+
   event.respondWith(
     (async () => {
       const cache = await caches.open(CACHE);
