@@ -14,7 +14,11 @@
     );
     if (!window.CWSession.qa && "serviceWorker" in navigator)
       navigator.serviceWorker.register("./sw.js").catch(() => {});
-    const scripts = ["./offline-v1.js?v=1", "./avatars.js?v=7"];
+    const scripts = [
+      "./offline-v1.js?v=1",
+      "./remove-photo-inspiration.js?v=1",
+      "./avatars.js?v=7",
+    ];
     if (window.CWSession.qa) scripts.push("./qa-mock.js?v=3");
     scripts.push(
       "./geo-throttle.js?v=4",
