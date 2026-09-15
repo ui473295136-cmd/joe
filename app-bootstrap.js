@@ -1,10 +1,23 @@
 (() => {
   "use strict";
   let started = false;
+  function suppressPhotoInspiration() {
+    if (!document.getElementById("cwPhotoInspirationOff")) {
+      const style = document.createElement("style");
+      style.id = "cwPhotoInspirationOff";
+      style.textContent = "#cwInspiration{display:none!important}";
+      document.head.appendChild(style);
+    }
+    const remove = () => document.getElementById("cwInspiration")?.remove();
+    remove();
+    const observer = new MutationObserver(remove);
+    observer.observe(document.documentElement, { childList: true, subtree: true });
+  }
   async function start() {
     if (started || !window.__CW_AUTH_OK) return;
     started = true;
     window.CWSession.installFetchAuth();
+    suppressPhotoInspiration();
     window.__cwErrors = [];
     addEventListener("error", (e) =>
       window.__cwErrors.push(String(e.message || "资源加载失败")),
@@ -14,11 +27,7 @@
     );
     if (!window.CWSession.qa && "serviceWorker" in navigator)
       navigator.serviceWorker.register("./sw.js").catch(() => {});
-    const scripts = [
-      "./offline-v1.js?v=1",
-      "./remove-photo-inspiration.js?v=1",
-      "./avatars.js?v=7",
-    ];
+    const scripts = ["./offline-v1.js?v=1", "./avatars.js?v=7"];
     if (window.CWSession.qa) scripts.push("./qa-mock.js?v=3");
     scripts.push(
       "./geo-throttle.js?v=4",
