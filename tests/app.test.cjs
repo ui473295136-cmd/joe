@@ -75,38 +75,14 @@ test("a social sheet locks background and Escape closes it", async () => {
     dom.window.close();
   }
 });
-test("failed vote stays on the same inspiration and repeated taps send only once", async () => {
-  const { dom, w, d } = await app();
+test("photo inspiration module is removed from itinerary", async () => {
+  const { dom, d } = await app();
   try {
     d.querySelector('[data-view="today"]').click();
     d.querySelector('[data-day="1"]').click();
     await wait(180);
-    let calls = 0;
-    const base = w.fetch;
-    w.fetch = async (i, o) => {
-      const b = JSON.parse(o?.body || "{}");
-      if (b.action === "vote_inspiration") {
-        calls++;
-        await wait(60);
-        return new Response(JSON.stringify({ error: "offline" }), {
-          status: 503,
-        });
-      }
-      return base(i, o);
-    };
-    const card = d.querySelector(".cw-insp-card:not(.behind)");
-    assert.ok(card);
-    const id = card.dataset.inspId;
-    const button = d.querySelector('[data-swipe-vote="1"]');
-    button.click();
-    button.click();
-    await wait(160);
-    assert.equal(calls, 1);
-    assert.equal(
-      d.querySelector(".cw-insp-card:not(.behind)").dataset.inspId,
-      id,
-    );
-    assert.match(d.querySelector("#toast").textContent, /未同步/);
+    assert.equal(d.querySelector("#cwInspiration"), null);
+    assert.equal(d.querySelector('[data-swipe-vote]'), null);
   } finally {
     dom.window.close();
   }
