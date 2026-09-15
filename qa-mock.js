@@ -184,6 +184,53 @@
           }));
         return res({ ok: true, count: baseState.ledger_acks.length });
       }
+      if (b.action === "settle_all") {
+        const person = b.payload?.person || qaPerson,
+          expenseId = b.payload?.expense_id ? String(b.payload.expense_id) : "",
+          selected = expenses.filter(
+            (e) =>
+              e.status !== "budget" &&
+              e.payer === person &&
+              (!expenseId || String(e.id) === expenseId),
+          ),
+          rows = [];
+        for (const e of selected) {
+          const ps = Array.isArray(e.participants) && e.participants.length ? e.participants : TEAM,
+            totalCt = Math.round(Number(e.amount || 0) * 100),
+            base = Math.floor(totalCt / ps.length),
+            rem = totalCt % ps.length;
+          ps.forEach((debtor, i) => {
+            if (debtor === person) return;
+            const shareCt = base + (i < rem ? 1 : 0),
+              exists = baseState.repayments.some(
+                (r) =>
+                  String(r.expense_id || "") === String(e.id) &&
+                  r.from_person === debtor &&
+                  r.to_person === person,
+              );
+            if (!shareCt || exists) return;
+            const row = {
+              id: `qa-bulk-${e.id}-${debtor}`,
+              trip_slug: "chuanxi2026",
+              expense_id: e.id,
+              from_person: debtor,
+              to_person: person,
+              amount: shareCt / 100,
+              note: `${e.category || "AA"}AA已结清`,
+              created_at: new Date().toISOString(),
+            };
+            baseState.repayments.push(row);
+            rows.push(row);
+          });
+        }
+        return res({
+          ok: true,
+          count: rows.length,
+          expense_count: new Set(rows.map((r) => String(r.expense_id))).size,
+          amount: rows.reduce((s, r) => s + Number(r.amount || 0), 0),
+          rows,
+        });
+      }
       return res({ ok: true, count: 0 });
     }
     if (url.includes("/functions/v1/trip-assist")) {
@@ -262,6 +309,7 @@
           ...baseState,
           profiles: [...profiles],
           ledger_acks: [...baseState.ledger_acks],
+          repayments: [...baseState.repayments],
         });
       if (
         a === "heartbeat" ||
