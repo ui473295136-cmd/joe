@@ -9,10 +9,12 @@
   const QA = window.CWSession?.qa === true;
   const ENDPOINT =
       "https://wpfqcztbxxarsrruuuce.supabase.co/functions/v1/trip-ledger",
+    SYNC = "https://wpfqcztbxxarsrruuuce.supabase.co/functions/v1/trip-sync",
     TRIP = "chuanxi2026";
   const $ = (s) => document.querySelector(s);
   let busy = "",
-    state = null;
+    state = null,
+    priming = null;
   const cents = (n) => Math.round(Number(n || 0) * 100);
   const moneyCt = (ct) =>
     "¥" +
@@ -131,6 +133,29 @@
       clearTimeout(t);
     }
   }
+  async function primeState() {
+    if (state || priming) return priming;
+    priming = (async () => {
+      try {
+        const r = await fetch(SYNC, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            trip_slug: TRIP,
+            action: "get_state",
+            payload: {},
+          }),
+        });
+        if (!r.ok) return;
+        state = await r.json();
+        paint();
+      } catch {}
+      finally {
+        priming = null;
+      }
+    })();
+    return priming;
+  }
   function style() {
     if ($("#cwAckAllStyle")) return;
     const s = document.createElement("style");
@@ -193,6 +218,7 @@
         : "无需审批";
   }
   function refreshEverywhere(reason) {
+    if (QA) return;
     window.dispatchEvent(
       new CustomEvent("cw:sync-now", { detail: { reason: reason || "ledger" } }),
     );
@@ -257,6 +283,7 @@
   }
   function init() {
     paint();
+    primeState();
     const badge = $("#pendingBadge"),
       list = $("#ledgerList");
     if ("MutationObserver" in window) {
@@ -271,7 +298,6 @@
           childList: true,
         });
     }
-    setTimeout(() => document.dispatchEvent(new Event("visibilitychange")), 40);
     if (!QA)
       setInterval(() => {
         if (!document.hidden) paint();
