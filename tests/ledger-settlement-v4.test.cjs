@@ -25,7 +25,7 @@ test("only the expense payer can confirm per-person AA settlement and totals syn
     w.dispatchEvent(new w.CustomEvent("cw:state", { detail: { state: structuredClone(baseState) } }));
     await wait(80);
 
-    assert.match(d.querySelector("#ledgerList").textContent, /AA结算/);
+    assert.match(d.querySelector("#ledgerList").textContent, /逐笔AA确认/);
     assert.match(d.querySelector("#ledgerList").textContent, /0\/3 已结清/);
     const yes = d.querySelector(`[data-cw-settle="yes"][data-expense="${rentId}"][data-debtor="瑞子"]`);
     assert.ok(yes, "payer should see a yes button for Rui's share");
