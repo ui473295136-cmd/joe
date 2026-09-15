@@ -31,6 +31,8 @@ const sleep=ms=>new Promise(r=>setTimeout(r,ms));
     let settlement=await page.$eval('#settlementLines',e=>e.innerText);
     if(!settlement.includes('¥471.75')||/辉子\s*应付给我/.test(settlement))throw new Error('PAYER_SETTLEMENT_FAIL '+settlement);
 
+    await page.evaluate(()=>document.querySelector('#bottomNav button[data-view="trip"]')?.click());
+    await page.waitForSelector('.cw-quick-chip[data-exp-cat="油费"]',{timeout:5000});
     await page.evaluate(()=>{const p=document.querySelector('#expPayer');p.value='辉子';p.dispatchEvent(new Event('change',{bubbles:true}))});
     await page.click('.cw-quick-chip[data-exp-cat="油费"]');
     await sleep(80);
