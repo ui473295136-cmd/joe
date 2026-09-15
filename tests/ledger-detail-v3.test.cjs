@@ -39,13 +39,13 @@ test("ledger v3 preserves direct pair debts and reconciles all four people", asy
     assert.deepEqual([yuan(huiz.outflowCt), yuan(huiz.shareCt), yuan(huiz.getCt), yuan(huiz.oweCt)], [3467, 2505.33, 961.67, 0]);
 
     const plan = w.CWLedgerDetailV3.pairwisePlan().map(x => [x.from, x.to, yuan(x.ct)]);
-    assert.deepEqual(plan, [
+    assert.equal(JSON.stringify(plan), JSON.stringify([
       ["普子", "瑞子", 453.59],
       ["航子", "瑞子", 453.59],
       ["瑞子", "辉子", 18.17],
       ["普子", "辉子", 471.75],
       ["航子", "辉子", 471.75],
-    ]);
+    ]));
 
     assert.match(d.querySelector("#settlementLines").textContent, /普子\s*应付给我/);
     assert.match(d.querySelector("#settlementLines").textContent, /453\.59/);
