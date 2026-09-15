@@ -1,0 +1,19 @@
+(()=>{
+'use strict';
+const TEAM=['瑞子','普子','航子','辉子'],START='2026-10-02',END='2026-10-07';
+const ME=new URLSearchParams(location.search).get('person')||localStorage.getItem('cw-person')||'瑞子';
+if(!TEAM.includes(ME))return;
+const QA=window.CWSession?.qa===true,qs=new URLSearchParams(location.search),$=s=>document.querySelector(s);
+let core=null,busy=false;
+function date(){const q=qs.get('qaDate');if(QA&&/^2026-\d{2}-\d{2}$/.test(q||''))return q;return new Date().toLocaleDateString('sv-SE',{timeZone:'Asia/Shanghai'})}
+function days(a,b){return Math.round((new Date(`${b}T00:00:00+08:00`)-new Date(`${a}T00:00:00+08:00`))/86400000)}
+function mode(){const d=date();return d<START?'pre':d>END?'done':'trip'}
+function cache(k){try{return JSON.parse(localStorage.getItem(k)||'null')?.data||{}}catch{return{}}}
+function ready(){const s=cache(`cw-social-cache-${ME}`),r=(s.readiness||[]).filter(x=>x.checkpoint_key==='2026-10-02-prep'&&x.ready);if(r.length)return new Set(r.map(x=>x.person)).size;const m=($('#cwReadyBox')?.innerText||'').match(/(\d+)\s*\/\s*4/);return m?Number(m[1]):0}
+function pendingLedger(){return Number((($('#pendingBadge')?.textContent||'').match(/\d+/)||['0'])[0])||0}
+function stats(){const b=core?.bookings||[],tickets=b.filter(x=>x.kind==='机票'),hotels=b.filter(x=>x.kind==='酒店'),pb=b.filter(x=>x.status!=='已确认'||/待|预算|未确认/.test(`${x.title||''} ${x.details||''}`)),a=cache(`cw-assist-state-${ME}`),tasks=(a.tasks||[]).filter(x=>x.person===ME&&!x.done).length;return{ticket:tickets.length>=2?'✓':tickets.length?`${tickets.length}/2`:'—',hotel:`${hotels.length||5}/6`,hotelPending:pb.filter(x=>x.kind==='酒店').length,pending:pb.length+tasks+pendingLedger(),ready:ready()}}
+function render(){if(busy)return;const m=mode(),card=$('#nextTripCard');if(!card||m==='trip')return;busy=true;try{if(m==='done'){if(!/旅程完成/.test(card.innerText)||!/查看旅行报告/.test(card.innerText)){card.dataset.stageV2='guard-done';card.innerHTML='<div class="cw-stage-head"><div><span>旅程完成</span><h2>6天川西反穿已完成</h2><p>所有到达记录、驾驶记录、账本和每日小结都还在。</p></div><b class="cw-stage-badge">✓</b></div><button type="button" class="primary cw-report-btn" data-stage-report>查看旅行报告</button>'}return}const d=days(date(),START),x=stats();if(new RegExp(`距离川西还有\\s*${d}\\s*天`).test(card.innerText)&&/四人准备度/.test(card.innerText))return;card.dataset.stageV2='guard-pre';card.innerHTML=`<div class="cw-stage-head"><div><span>出发前</span><h2>距离川西还有 ${d} 天</h2><p>10月2日出发 · 现在只看准备进度，不把 Day 1 当成“今天”。</p></div><b class="cw-stage-count">${d}</b></div><div class="cw-prep-grid"><div><span>机票</span><b>${x.ticket}</b><small>往返航班</small></div><div><span>酒店</span><b>${x.hotel}</b><small>${x.hotelPending?`${x.hotelPending}项待最终确认`:'住宿安排已录入'}</small></div><div><span>租车</span><b>✓</b><small>取车节点已排入 Day 1</small></div><div><span>待确认事项</span><b>${x.pending}</b><small>任务 / 预订 / 账本</small></div><div class="wide"><span>四人准备度</span><b>${x.ready}/4</b><div class="cw-ready-meter"><i style="width:${Math.max(0,Math.min(100,x.ready/4*100))}%"></i></div></div></div><button type="button" class="ghost cw-plan-btn" data-stage-plan>查看6天行程计划</button>`}finally{busy=false}}
+window.addEventListener('cw:state',e=>{core=e.detail?.state||core;setTimeout(render,30)});
+const obs=new MutationObserver(ms=>{if(mode()==='trip'||busy)return;if(ms.some(m=>m.target?.id==='nextTripCard'||m.target?.closest?.('#nextTripCard')))setTimeout(render,0)});
+const wait=()=>{const c=$('#nextTripCard');if(!c)return setTimeout(wait,100);obs.observe(c,{childList:true,subtree:true,characterData:true});render();setInterval(render,1500);document.documentElement.classList.add('cw-stage-card-guard-ready')};wait();
+})();
