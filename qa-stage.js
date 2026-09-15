@@ -19,8 +19,11 @@ async function open(browser,date,time='09:00'){
     if(!pre.hello.includes('出发前')||!pre.tag.includes('17天')||!/机票/.test(pre.card)||!/酒店/.test(pre.card)||!/四人准备度/.test(pre.card)||!/暂无可靠天气预报/.test(pre.wx)||/下一站/.test(pre.card))throw new Error('PRE_STAGE_FAIL '+JSON.stringify(pre));
     await p.close();
     p=await open(browser,'2026-10-03','12:30');
+    await p.waitForSelector('#bottomNav button[data-view="today"]',{timeout:8000});
+    await p.click('#bottomNav button[data-view="today"]');
+    await sleep(120);
     await p.waitForSelector('#simpleItinerary [data-day="1"]',{timeout:8000});
-    await p.click('#simpleItinerary [data-day="1"]');
+    await p.evaluate(()=>document.querySelector('#simpleItinerary [data-day="1"]')?.click());
     await p.waitForFunction(()=>/折多山/.test(document.querySelector('#cwHourlyRouteWeather')?.innerText||'')&&/建议短停/.test(document.querySelector('#cwHourlyRouteWeather')?.innerText||''),{timeout:7000});
     const trip=await p.evaluate(()=>({tag:document.querySelector('#todayTag')?.textContent||'',wx:document.querySelector('#cwHourlyRouteWeather')?.innerText||''}));
     for(const needle of ['旅途中 · Day 2','13:00','折多山','预计 4℃','体感 0℃','风速 37km/h','降雨概率 48%','建议短停'])if(!(trip.tag+' '+trip.wx).includes(needle))throw new Error('TRIP_WEATHER_FAIL '+needle+' '+JSON.stringify(trip));
