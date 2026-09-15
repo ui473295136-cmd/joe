@@ -7,6 +7,7 @@ const CORE = [
   "./session-store.js",
   "./app-bootstrap.js",
   "./offline-v1.js",
+  "./remove-photo-inspiration.js",
   "./app-v4.html",
   "./app-v4.css",
   "./app-v4.js",
