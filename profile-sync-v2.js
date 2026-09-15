@@ -15,6 +15,13 @@
   const $ = (s) => document.querySelector(s),
     $$ = (s) => [...document.querySelectorAll(s)];
   let profiles = [],
+    limits = {
+      daily_limit: 3,
+      nickname_used: 0,
+      nickname_remaining: 3,
+      avatar_used: 0,
+      avatar_remaining: 3,
+    },
     busy = false,
     pending = null,
     crop = null,
@@ -45,6 +52,7 @@
       role: ROLE[p],
       avatar_url: "",
     };
+  const label = (p) => get(p).nickname || p;
   function notify(text) {
     const el = $("#avatarState");
     if (el) el.textContent = text;
@@ -60,18 +68,38 @@
         body: JSON.stringify({ trip_slug: "chuanxi2026", action, payload }),
         signal: c.signal,
       });
-      const j = await r.json();
-      if (!r.ok || j.ok === false) throw new Error(j.error || "同步失败");
+      const j = await r.json().catch(() => ({}));
+      if (!r.ok || j.ok === false) {
+        const e = new Error(j.error || "同步失败");
+        e.code = j.code || "";
+        e.limits = j.limits || null;
+        throw e;
+      }
       return j;
     } finally {
       clearTimeout(t);
     }
   }
   function merge(p) {
-    if (!p || !TEAM.includes(p.person)) return;
+    if (!p || !TEAM.includes(p.person)) return false;
     const i = profiles.findIndex((x) => x.person === p.person);
-    if (i < 0) profiles.push(p);
-    else profiles[i] = { ...profiles[i], ...p };
+    if (i < 0) {
+      profiles.push(p);
+      return true;
+    }
+    const old = profiles[i],
+      a = Date.parse(old.updated_at || 0) || 0,
+      b = Date.parse(p.updated_at || 0) || 0;
+    if (a && b && b < a) return false;
+    const next = { ...old, ...p };
+    const changed =
+      old.nickname !== next.nickname ||
+      old.role !== next.role ||
+      old.avatar_url !== next.avatar_url ||
+      old.updated_at !== next.updated_at ||
+      old.last_seen !== next.last_seen;
+    profiles[i] = next;
+    return changed;
   }
   function imageUrl(p) {
     const u = get(p).avatar_url;
@@ -81,7 +109,7 @@
     if (!el) return;
     const u = imageUrl(p);
     el.dataset.person = p;
-    el.setAttribute("aria-label", get(p).nickname || p);
+    el.setAttribute("aria-label", label(p));
     if (el.dataset.avatarSrc === u) return;
     el.dataset.avatarSrc = u;
     el.textContent = u ? "" : p[0];
@@ -97,6 +125,28 @@
       };
       img.src = u;
     }
+  }
+  function limitHint() {
+    const host = $(".profile-fields");
+    if (!host) return;
+    let el = $("#profileChangeHint");
+    if (!el) {
+      el = document.createElement("div");
+      el.id = "profileChangeHint";
+      el.className = "profile-change-hint";
+      const state = $("#avatarState");
+      state?.insertAdjacentElement("beforebegin", el);
+    }
+    const n = Math.max(0, Number(limits.nickname_remaining ?? 3)),
+      a = Math.max(0, Number(limits.avatar_remaining ?? 3));
+    el.classList.toggle("limit-hit", n === 0 || a === 0);
+    el.innerHTML = `<span>昵称今天还可改 <b>${n}</b> 次</span><i>·</i><span>头像还可换 <b>${a}</b> 次</span><small>每天各 3 次 · 次日 00:00 自动重置</small>`;
+    const avatarBtn = $("#changeAvatar");
+    if (avatarBtn && !busy) avatarBtn.disabled = a <= 0;
+  }
+  function applyLimits(next) {
+    if (next) limits = { ...limits, ...next };
+    limitHint();
   }
   function paint() {
     for (const p of TEAM)
@@ -124,7 +174,7 @@
       else {
         const html = TEAM.map(
           (p) =>
-            `<button type="button" class="identity-item ${p === ME ? "on" : ""}" data-switch-person="${p}"><span class="identity-avatar" data-profile-avatar="${p}"></span><span><b>${esc(get(p).nickname || p)}</b><small>${esc(get(p).role || ROLE[p])}</small></span>${p === ME ? "<em>当前</em>" : ""}</button>`,
+            `<button type="button" class="identity-item ${p === ME ? "on" : ""}" data-switch-person="${p}"><span class="identity-avatar" data-profile-avatar="${p}"></span><span><b>${esc(label(p))}</b><small>${esc(get(p).role || ROLE[p])}</small></span>${p === ME ? "<em>当前</em>" : ""}</button>`,
         ).join("");
         if (grid.dataset.content !== html) {
           grid.innerHTML = html;
@@ -135,8 +185,11 @@
         }
       }
     }
+    limitHint();
     window.dispatchEvent(
-      new CustomEvent("cw:profiles", { detail: { profiles: [...profiles] } }),
+      new CustomEvent("cw:profiles", {
+        detail: { profiles: [...profiles], limits: { ...limits } },
+      }),
     );
   }
   function refresh() {
@@ -145,8 +198,13 @@
     pending = api("list_profiles")
       .then((j) => {
         if (version !== refreshVersion || busy) return;
-        (j.profiles || []).forEach(merge);
-        paint();
+        let changed = false;
+        (j.profiles || []).forEach((p) => (changed = merge(p) || changed));
+        applyLimits(j.limits);
+        if (changed || !document.documentElement.classList.contains("profile-live-painted")) {
+          paint();
+          document.documentElement.classList.add("profile-live-painted");
+        }
       })
       .catch(() => {
         if (!profiles.length) notify("资料暂未同步，可稍后重试");
@@ -228,6 +286,10 @@
     window.addEventListener("resize", clamp);
     $("#cropConfirm").onclick = async () => {
       if (!crop || busy) return;
+      if (Number(limits.avatar_remaining ?? 3) <= 0) {
+        closeCrop();
+        return notify("今天头像已经更换3次，明天可以继续更换");
+      }
       const st = crop,
         scale = st.scale * st.zoom,
         side = st.size / scale;
@@ -266,18 +328,23 @@
       try {
         const j = await api("upload_avatar", { person: ME, data_url: data });
         if (!j.profile?.avatar_url) throw new Error("未收到保存结果，请重试");
+        applyLimits(j.limits);
         merge(j.profile);
         paint();
         channel?.postMessage({ type: "profile", profile: j.profile });
-        notify("头像已同步给所有人");
+        window.dispatchEvent(
+          new CustomEvent("cw:sync-now", { detail: { reason: "profile-avatar" } }),
+        );
+        notify(`头像已同步给所有人 · 今天还可更换 ${limits.avatar_remaining} 次`);
       } catch (e) {
+        applyLimits(e.limits);
         notify(
-          "头像上传失败：" +
+          (e.code === "avatar_limit" ? "" : "头像上传失败：") +
             (e.name === "AbortError" ? "连接超时，请重试" : e.message),
         );
       } finally {
         busy = false;
-        $("#changeAvatar").disabled = false;
+        $("#changeAvatar").disabled = Number(limits.avatar_remaining ?? 3) <= 0;
       }
     };
   }
@@ -293,8 +360,11 @@
       const nick = $("#nicknameInput"),
         role = $("#roleInput"),
         nickname = nick.value.trim(),
-        value = role.value.trim();
+        value = role.value.trim(),
+        nicknameChanged = nickname !== (get(ME).nickname || ME);
       if (!nickname) return notify("昵称不能为空");
+      if (nicknameChanged && Number(limits.nickname_remaining ?? 3) <= 0)
+        return notify("今天昵称已经修改3次，明天可以继续修改；职责仍可单独修改");
       busy = true;
       refreshVersion++;
       $("#saveProfile").disabled = true;
@@ -306,13 +376,22 @@
           role: value,
         });
         if (!j.profile) throw new Error("未收到保存结果，请重试");
+        applyLimits(j.limits);
         if (nick.value.trim() === nickname) delete nick.dataset.dirty;
         if (role.value.trim() === value) delete role.dataset.dirty;
         merge(j.profile);
         paint();
         channel?.postMessage({ type: "profile", profile: j.profile });
-        notify("个人资料已同步");
+        window.dispatchEvent(
+          new CustomEvent("cw:sync-now", { detail: { reason: "profile-update" } }),
+        );
+        notify(
+          nicknameChanged
+            ? `昵称已同步给所有场景 · 今天还可修改 ${limits.nickname_remaining} 次`
+            : "个人资料已同步",
+        );
       } catch (e) {
+        applyLimits(e.limits);
         notify("保存失败，输入已保留：" + e.message);
       } finally {
         busy = false;
@@ -320,10 +399,11 @@
       }
     };
     $("#changeAvatar").onclick = () => {
-      if (!busy) {
-        $("#avatarInput").value = "";
-        $("#avatarInput").click();
-      }
+      if (busy) return;
+      if (Number(limits.avatar_remaining ?? 3) <= 0)
+        return notify("今天头像已经更换3次，明天可以继续更换");
+      $("#avatarInput").value = "";
+      $("#avatarInput").click();
     };
     $("#avatarInput").onchange = (e) => {
       const f = e.target.files?.[0];
@@ -356,24 +436,32 @@
     channel?.addEventListener("message", (e) => {
       if (e.data?.type === "profile") {
         refreshVersion++;
-        merge(e.data.profile);
-        paint();
+        if (merge(e.data.profile)) paint();
       }
     });
     document.addEventListener("visibilitychange", () => {
       if (!document.hidden) refresh();
     });
     window.addEventListener("focus", refresh);
+    window.addEventListener("pageshow", refresh);
   }
   function init() {
-    window.CWProfiles = { get, imageUrl, refresh, paintAvatar };
+    window.CWProfiles = {
+      get,
+      label,
+      imageUrl,
+      refresh,
+      paintAvatar,
+      limits: () => ({ ...limits }),
+    };
     ensureCrop();
     bind();
     $("#switchIdentity")?.closest(".card")?.remove();
+    limitHint();
     refresh();
     setInterval(() => {
       if (!document.hidden) refresh();
-    }, 15000);
+    }, 2500);
     document.documentElement.classList.add("profile-sync-ready");
   }
   if (document.readyState === "loading")
