@@ -6,7 +6,7 @@ if(!TEAM.includes(ME))return;
 const FN='https://wpfqcztbxxarsrruuuce.supabase.co/functions/v1/trip-sync',TRIP='chuanxi2026',MAX_AMOUNT=9999999.99;
 const $=s=>document.querySelector(s),$$=s=>[...document.querySelectorAll(s)];
 let S=null,renderTimer=null;
-const esc=s=>String(s??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot',"'":'&#39;'}[m]));
+const esc=s=>String(s??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
 const money=n=>'¥'+Number(n||0).toLocaleString('zh-CN',{minimumFractionDigits:2,maximumFractionDigits:2});
 const cents=n=>Math.round(Number(n||0)*100);
 const validAmount=n=>Number.isFinite(Number(n))&&Number(n)>0&&Number(n)<=MAX_AMOUNT&&Math.abs(Number(n)*100-Math.round(Number(n)*100))<1e-6;
