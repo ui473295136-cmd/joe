@@ -218,10 +218,10 @@
         : "无需审批";
   }
   function refreshEverywhere(reason) {
-    if (QA) return;
-    window.dispatchEvent(
-      new CustomEvent("cw:sync-now", { detail: { reason: reason || "ledger" } }),
-    );
+    if (!QA)
+      window.dispatchEvent(
+        new CustomEvent("cw:sync-now", { detail: { reason: reason || "ledger" } }),
+      );
     document.dispatchEvent(new Event("visibilitychange"));
   }
   async function ackAll() {
