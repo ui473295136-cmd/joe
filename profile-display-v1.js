@@ -23,7 +23,14 @@
     profileMap.get(p)?.nickname || window.CWProfiles?.get?.(p)?.nickname || p;
   const renderString = (s) => {
     let out = String(s ?? "");
-    for (const [p, a] of allAliases()) out = out.split(a).join(label(p));
+    const tokens = TEAM.map((_, i) => `\uE100CW${i}\uE101`);
+    for (const [p, a] of allAliases()) {
+      const i = TEAM.indexOf(p);
+      if (i >= 0) out = out.split(a).join(tokens[i]);
+    }
+    TEAM.forEach((p, i) => {
+      out = out.split(tokens[i]).join(label(p));
+    });
     return out;
   };
   function excludedText(node) {
@@ -102,7 +109,10 @@
   function syncSocialCache(profiles) {
     try {
       const key = `cw-social-cache-${ME}`,
-        cached = JSON.parse(localStorage.getItem(key) || "null") || { saved: Date.now(), data: {} },
+        cached = JSON.parse(localStorage.getItem(key) || "null") || {
+          saved: Date.now(),
+          data: {},
+        },
         data = cached.data || {},
         list = Array.isArray(data.profiles) ? [...data.profiles] : [];
       for (const p of profiles) {
@@ -117,13 +127,16 @@
   function scan(root = document) {
     if (root.nodeType === Node.TEXT_NODE) renderText(root);
     if (root instanceof Element) renderAttrs(root);
-    const base = root.nodeType === Node.DOCUMENT_NODE ? document.documentElement : root;
+    const base =
+      root.nodeType === Node.DOCUMENT_NODE ? document.documentElement : root;
     if (base?.nodeType === Node.ELEMENT_NODE) {
       const walker = document.createTreeWalker(base, NodeFilter.SHOW_TEXT);
       let n;
       while ((n = walker.nextNode())) renderText(n);
       renderAttrs(base);
-      base.querySelectorAll?.("[aria-label],[title],[alt]").forEach((el) => renderAttrs(el));
+      base
+        .querySelectorAll?.("[aria-label],[title],[alt]")
+        .forEach((el) => renderAttrs(el));
     }
     paintKnownAvatars(root.nodeType === Node.DOCUMENT_NODE ? document : root);
   }
@@ -146,7 +159,9 @@
     rerender();
     window.dispatchEvent(
       new CustomEvent("cw:profile-display", {
-        detail: { profiles: TEAM.map((p) => profileMap.get(p)).filter(Boolean) },
+        detail: {
+          profiles: TEAM.map((p) => profileMap.get(p)).filter(Boolean),
+        },
       }),
     );
   });
@@ -168,7 +183,9 @@
     attributeFilter: ATTRS,
   });
   if (document.readyState === "loading")
-    document.addEventListener("DOMContentLoaded", () => scan(document), { once: true });
+    document.addEventListener("DOMContentLoaded", () => scan(document), {
+      once: true,
+    });
   else scan(document);
   window.CWProfileDisplay = { label, rerender };
 })();
