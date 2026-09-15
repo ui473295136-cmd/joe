@@ -1,65 +1,748 @@
-(()=>{
-'use strict';
-const TEAM=['瑞子','普子','航子','辉子'];
-const ME=new URLSearchParams(location.search).get('person')||localStorage.getItem('cw-person')||'瑞子';
-const QA=new URLSearchParams(location.search).get('qa')==='1';
-if(!TEAM.includes(ME))return;
-const ENDPOINT='https://wpfqcztbxxarsrruuuce.supabase.co/functions/v1/trip-assist',TRIP='chuanxi2026';
-const $=s=>document.querySelector(s),$$=s=>[...document.querySelectorAll(s)];
-const DAYS=[
- {date:'2026-10-02',label:'Day 1',route:'天府机场 → 雅安',km:190,points:[['16:00','天府国际机场',30.312,104.441,'落地 / 取行李'],['17:15','天府国际机场',30.312,104.441,'取车完成 / 出发'],['19:00','服务区',30.160,103.650,'休息 10–15 分钟'],['21:00','雅安',29.980,103.000,'晚餐 / 补给 / 入住']]},
- {date:'2026-10-03',label:'Day 2',route:'雅安 → 泸定 → 康定 → 折多山 → 新都桥',km:280,points:[['06:00','雅安',29.980,103.000,'出发'],['08:30','泸定',29.920,102.230,'短停'],['10:30','康定',30.050,101.960,'午饭 / 补给'],['13:00','折多山',30.060,101.800,'高海拔短停'],['15:00','新都桥',30.040,101.490,'外围拍摄'],['18:00','新都桥',30.040,101.490,'入住']]},
- {date:'2026-10-04',label:'Day 3',route:'新都桥 → 塔公 → 八美 → 丹巴中路藏寨',km:160,points:[['07:00','新都桥',30.040,101.490,'晨景'],['09:30','塔公',30.320,101.540,'草原 / 人文'],['11:45','八美',30.550,101.500,'午饭 / 补给'],['16:00','丹巴',30.880,101.890,'抵达'],['17:00','中路藏寨',30.890,101.920,'入住']]},
- {date:'2026-10-05',label:'Day 4',route:'丹巴 → 小金 → 四姑娘山双桥沟',km:120,points:[['06:30','丹巴',30.880,101.890,'出发'],['07:45','小金',30.990,102.360,'早餐 / 加油'],['09:45','双桥沟',31.090,102.840,'进入景区'],['13:30','双桥沟',31.130,102.800,'午餐 / 拍照'],['16:30','双桥沟',31.090,102.840,'出景区'],['17:00','四姑娘山镇',31.100,102.890,'入住']]},
- {date:'2026-10-06',label:'Day 5',route:'四姑娘山 → 卧龙 → 映秀 → 都江堰 → 天府机场',km:285,points:[['05:30','四姑娘山镇',31.100,102.890,'必须早走'],['08:30','卧龙',31.040,103.180,'休息'],['10:00','映秀',31.060,103.480,'经过'],['11:00','都江堰',31.000,103.620,'午饭 / 加油'],['16:00','天府国际机场',30.312,104.441,'机场附近入住']]},
- {date:'2026-10-07',label:'Day 6',route:'机场酒店 → 还车 → 航站楼',km:12,points:[['05:15','机场酒店',30.300,104.440,'起床'],['05:40','机场酒店',30.300,104.440,'退房'],['06:10','还车点',30.310,104.430,'补油 / 还车'],['06:40','天府国际机场',30.312,104.441,'进入航站楼']]}
-];
-const ROLE_TASK={
- 瑞子:{pre:'确认首晚酒店地址、入住方式和联系电话',trip:'确认今晚住宿，并处理今天账本待确认'},
- 普子:{pre:'查看 Day 1 路线、天气和国庆交通风险',trip:'出发前看当天路线、天气和关键路段'},
- 航子:{pre:'核对航班时间、证件和行李要求',trip:'盯住今天关键时间节点，避免行程拖延'},
- 辉子:{pre:'确认租车资料、取车要求和车辆保障',trip:'出发前检查油量、胎压和车辆状态'}
-};
-let state={progress:[],tasks:[],daily_stats:{},settlement:{gets:[],owes:[]}},lastGood=0,poll=null,lastPos=null,selectedDay=0;
-function esc(s){return String(s??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]))}
-function cnDate(){return new Date().toLocaleDateString('sv-SE',{timeZone:'Asia/Shanghai'})}
-function cnHM(){return new Date().toLocaleTimeString('zh-CN',{timeZone:'Asia/Shanghai',hour:'2-digit',minute:'2-digit',hour12:false})}
-function fmtTime(t){if(!t)return'—';return new Date(t).toLocaleTimeString('zh-CN',{timeZone:'Asia/Shanghai',hour:'2-digit',minute:'2-digit',hour12:false})}
-function money(n){return'¥'+Number(n||0).toLocaleString('zh-CN',{maximumFractionDigits:2})}
-function dayIndexFor(date=cnDate()){const i=DAYS.findIndex(x=>x.date===date);if(i>=0)return i;if(date<DAYS[0].date)return 0;return DAYS.length-1}
-function token(){return sessionStorage.getItem(`cw-auth-${ME}`)||(QA?'qa-token-abcdefghijklmnopqrstuvwxyz':'')}
-function cacheKey(){return`cw-assist-state-${ME}`}
-function cached(){try{return JSON.parse(localStorage.getItem(cacheKey())||'null')}catch{return null}}
-function saveCache(v){try{localStorage.setItem(cacheKey(),JSON.stringify({saved:Date.now(),data:v}))}catch{}}
-async function api(action,payload={},timeout=9000){const tk=token();if(!tk)throw new Error('登录已失效');const c=new AbortController(),tm=setTimeout(()=>c.abort(),timeout);try{const r=await fetch(ENDPOINT,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({trip_slug:TRIP,action,payload:{...payload,person:ME,token:tk}}),signal:c.signal});const j=await r.json().catch(()=>({}));if(!r.ok)throw new Error(j.error||'同步失败');return j}finally{clearTimeout(tm)}}
-function ensureNetBadge(){if($('#cwNetBadge'))return;const e=document.createElement('div');e.id='cwNetBadge';e.className='cw-net-badge';e.textContent='连接中';e.title='云端数据状态';document.body.appendChild(e)}
-function net(mode){ensureNetBadge();const e=$('#cwNetBadge');e.className='cw-net-badge'+(mode==='weak'?' weak':mode==='offline'?' offline':'');if(mode==='offline')e.textContent='离线 · 缓存';else if(mode==='weak')e.textContent='弱网 · 缓存';else e.textContent='实时';e.title=lastGood?`云端最近成功同步 ${new Date(lastGood).toLocaleTimeString('zh-CN',{hour:'2-digit',minute:'2-digit',hour12:false})}`:'等待首次同步'}
-function readPos(){try{const p=JSON.parse(localStorage.getItem('cw-lastpos-v4')||'null');if(p&&Number.isFinite(+p.lat)&&Number.isFinite(+p.lon)){lastPos=p;return p}}catch{}return lastPos}
-function hav(lat1,lon1,lat2,lon2){const R=6371,p=Math.PI/180,dLat=(lat2-lat1)*p,dLon=(lon2-lon1)*p,a=Math.sin(dLat/2)**2+Math.cos(lat1*p)*Math.cos(lat2*p)*Math.sin(dLon/2)**2;return 2*R*Math.asin(Math.sqrt(a))}
-function wgsToGcj(lat,lon){const PI=Math.PI,a=6378245,ee=.00669342162296594323;if(lon<72.004||lon>137.8347||lat<.8293||lat>55.8271)return[lat,lon];const tf=(x,y)=>-100+2*x+3*y+.2*y*y+.1*x*y+.2*Math.sqrt(Math.abs(x))+(20*Math.sin(6*x*PI)+20*Math.sin(2*x*PI))*2/3+(20*Math.sin(y*PI)+40*Math.sin(y/3*PI))*2/3+(160*Math.sin(y/12*PI)+320*Math.sin(y*PI/30))*2/3,tg=(x,y)=>300+x+2*y+.1*x*x+.1*x*y+.1*Math.sqrt(Math.abs(x))+(20*Math.sin(6*x*PI)+20*Math.sin(2*x*PI))*2/3+(20*Math.sin(x*PI)+40*Math.sin(x/3*PI))*2/3+(150*Math.sin(x/12*PI)+300*Math.sin(x/30*PI))*2/3;let dLat=tf(lon-105,lat-35),dLon=tg(lon-105,lat-35),r=lat/180*PI,m=1-ee*Math.sin(r)**2,s=Math.sqrt(m);dLat=dLat*180/((a*(1-ee))/(m*s)*PI);dLon=dLon*180/(a/s*Math.cos(r)*PI);return[lat+dLat,lon+dLon]}
-function navUrl(point){const[a,b]=wgsToGcj(point[2],point[3]);return`https://uri.amap.com/navigation?to=${b.toFixed(6)},${a.toFixed(6)},${encodeURIComponent(point[1])}&mode=car&coordinate=gaode&callnative=1`}
-function progressFor(day,i){return(state.progress||[]).find(x=>x.day_date===day&&Number(x.stop_index)===i)}
-function nextInfo(){const today=cnDate(),di=dayIndexFor(today),d=DAYS[di],hm=cnHM();if(today>DAYS[DAYS.length-1].date)return{done:true,d,i:d.points.length-1,p:d.points.at(-1)};let idx=0;if(today===d.date){const missing=d.points.findIndex((p,i)=>!progressFor(d.date,i)?.arrived_at&&p[0]>=hm);if(missing>=0)idx=missing;else{const any=d.points.findIndex((p,i)=>!progressFor(d.date,i)?.arrived_at);idx=any>=0?any:d.points.length-1}}const p=d.points[idx];return{done:false,d,i:idx,p}}
-function planMinutes(point,date){const today=cnDate();if(date!==today)return null;const [h,m]=point[0].split(':').map(Number),now=new Date(),target=new Date(now);target.setHours(h,m,0,0);return Math.round((target-now)/60000)}
-async function sunsetNote(day,point,card){if(day.date!==cnDate()||!point?.[2])return;const key=`cw-sunset-${day.date}-${point[2].toFixed(2)}-${point[3].toFixed(2)}`;let sunset='';try{const c=JSON.parse(localStorage.getItem(key)||'null');if(c&&Date.now()-c.saved<6*3600000)sunset=c.sunset}catch{}if(!sunset&&!QA){try{const u=`https://api.open-meteo.com/v1/forecast?latitude=${point[2]}&longitude=${point[3]}&daily=sunset&timezone=Asia%2FShanghai&start_date=${day.date}&end_date=${day.date}`,r=await fetch(u),j=await r.json();sunset=j.daily?.sunset?.[0]||'';if(sunset)localStorage.setItem(key,JSON.stringify({saved:Date.now(),sunset}))}catch{}}if(QA)sunset=`${day.date}T18:30`;if(!sunset)return;const sh=String(sunset).slice(11,16),planned=point[0];if(planned>=sh){const n=card.querySelector('.cw-next-note');if(n){n.textContent=`⚠️ 计划 ${planned} 到达，日落约 ${sh}，注意夜间山路。`;n.classList.add('warn')}}else{const n=card.querySelector('.cw-next-note');if(n)n.textContent=`日落约 ${sh} · 按计划可在天黑前到达`}}
-function renderNext(){const old=$('#nextTripCard');if(!old)return;old.classList.add('cw-next-action');const x=nextInfo(),p=x.p,d=x.d;if(x.done){old.innerHTML='<div class="cw-next-top"><div><span class="cw-next-kicker">行程完成</span><h2>6天川西反穿已完成</h2></div></div><div class="cw-next-note">可以在“行程”里回看每天记录。</div>';return}const pos=readPos(),dist=pos?hav(+pos.lat,+pos.lon,p[2],p[3]):null,m=planMinutes(p,d.date),timeText=d.date===cnDate()?(m==null?'':m>0?`按计划约 ${m>=60?Math.floor(m/60)+'小时'+(m%60?m%60+'分':''):m+'分钟'}`:'计划时间已过'):`${d.date.slice(5).replace('-','/')} ${p[0]}`;old.innerHTML=`<div class="cw-next-top"><div><span class="cw-next-kicker">下一站 · ${esc(d.label)}</span><h2>${esc(p[1])}</h2></div><span class="cw-data-time">云端 ${lastGood?'刚刚':'缓存'}</span></div><div class="cw-next-meta"><div><span>计划到达</span><b>${esc(p[0])}</b></div><div><span>${dist!=null?'距当前位置':'今日路线'}</span><b>${dist!=null?`直线约 ${dist<10?dist.toFixed(1):Math.round(dist)}km`:esc(d.route)}</b></div><div><span>时间判断</span><b>${esc(timeText||'按当天计划')}</b></div><div><span>当前状态</span><b>${progressFor(d.date,x.i)?.arrived_at?'已到达':'未到达'}</b></div></div><div class="cw-next-actions"><a class="primary" href="${navUrl(p)}">一键导航</a><button type="button" class="ghost" data-assist-itinerary>查看当天行程</button></div><div class="cw-next-note">导航时间以高德实际路况为准。</div>`;sunsetNote(d,p,old)}
-function defaultTasks(){const date=cnDate(),pre=date<DAYS[0].date,after=date>DAYS.at(-1).date,di=dayIndexFor(date),d=DAYS[di];if(after)return[];const arr=[{key:'role',title:ROLE_TASK[ME][pre?'pre':'trip'],sub:pre?'出发前准备':'今天的个人职责'}];arr.push({key:'route',title:pre?`提前看 ${DAYS[0].label}：${DAYS[0].route}`:`确认今天下一站和关键时间点`,sub:pre?'避免出发当天临时研究':'30秒看完当天安排'});return arr}
-function taskSaved(key){return(state.tasks||[]).find(x=>x.task_key===key)}
-function ensureTaskCard(){if($('#cwTaskCard'))return;const next=$('#nextTripCard');if(!next)return;const c=document.createElement('section');c.id='cwTaskCard';c.className='card cw-task-card';next.insertAdjacentElement('afterend',c)}
-function renderTasks(){ensureTaskCard();const c=$('#cwTaskCard');if(!c)return;const tasks=defaultTasks(),sett=state.settlement||{gets:[],owes:[]};if(!tasks.length&&!sett.owes?.length&&!sett.gets?.length){c.innerHTML='<div class="section-head"><div><span class="eyebrow">今天</span><h2>没有待处理事项</h2></div></div>';return}c.innerHTML=`<div class="section-head"><div><span class="eyebrow">今天</span><h2>还有什么没完成</h2></div><span class="cw-data-time">${tasks.filter(t=>taskSaved(t.key)?.done).length}/${tasks.length}</span></div><div class="cw-task-list">${tasks.map(t=>{const done=!!taskSaved(t.key)?.done;return`<label class="cw-task ${done?'done':''}"><input type="checkbox" data-assist-task="${esc(t.key)}" ${done?'checked':''}><div><b>${esc(t.title)}</b><span>${esc(t.sub)}</span></div></label>`}).join('')}</div>${sett.owes?.length?`<div class="cw-money-task">待付款：${sett.owes.map(x=>`${esc(x.to)} ${money(x.amount)}`).join(' · ')}</div>`:''}${sett.gets?.length?`<div class="cw-money-task">待收款：${sett.gets.map(x=>`${esc(x.from)} ${money(x.amount)}`).join(' · ')}</div>`:''}`}
-function ensureQuickExpense(){const form=$('#expenseForm');if(!form||$('#cwQuickExpense'))return;const e=document.createElement('div');e.id='cwQuickExpense';e.className='cw-quick-expense';e.innerHTML='<div class="cw-quick-title">5秒快捷记账</div><div class="cw-quick-grid"><button type="button" class="cw-quick-chip" data-exp-cat="吃饭">🍜 吃饭</button><button type="button" class="cw-quick-chip" data-exp-cat="油费">⛽ 油费</button><button type="button" class="cw-quick-chip" data-exp-cat="停车">🅿️ 停车</button><button type="button" class="cw-quick-chip" data-exp-cat="过路费">🛣 过路</button><button type="button" class="cw-quick-chip" data-exp-cat="住宿">🏨 住宿</button><button type="button" class="cw-quick-chip" data-exp-cat="门票">🎫 门票</button></div>';form.parentNode.insertBefore(e,form)}
-function confirmBox(text,onConfirm){let ov=$('#cwAssistConfirm');if(!ov){ov=document.createElement('div');ov.id='cwAssistConfirm';ov.className='cw-confirm-overlay';document.body.appendChild(ov)}ov.innerHTML=`<div class="cw-confirm-card"><h3>确认记录？</h3><p>${esc(text)}</p><div class="cw-confirm-actions"><button type="button" data-assist-cancel>取消</button><button type="button" class="primary" data-assist-confirm>确认</button></div></div>`;ov.classList.add('show');ov.onclick=e=>{if(e.target===ov||e.target.closest('[data-assist-cancel]'))ov.classList.remove('show');if(e.target.closest('[data-assist-confirm]')){ov.classList.remove('show');onConfirm()}}}
-function enhanceProgress(){const box=$('#simpleItinerary');if(!box)return;const chip=box.querySelector('.day-chip.on'),di=Number(chip?.dataset.day??dayIndexFor()),d=DAYS[di];selectedDay=di;const today=cnDate();box.querySelectorAll('.simple-stop').forEach((row,i)=>{row.querySelector('.cw-progress-actions')?.remove();const p=d.points[i],rec=progressFor(d.date,i),wrap=document.createElement('div');wrap.className='cw-progress-actions';let html='';if(rec?.arrived_at)html+=`<span class="cw-progress-stamp">到达 ${fmtTime(rec.arrived_at)}</span>`;if(rec?.departed_at)html+=`<span class="cw-progress-stamp">出发 ${fmtTime(rec.departed_at)}</span>`;if(d.date===today){if(!rec?.arrived_at)html+=`<button type="button" class="cw-progress-btn primary" data-progress-kind="arrival" data-progress-day="${d.date}" data-progress-index="${i}">记录到达</button>`;else if(!rec?.departed_at)html+=`<button type="button" class="cw-progress-btn" data-progress-kind="departure" data-progress-day="${d.date}" data-progress-index="${i}">记录出发</button>`}wrap.innerHTML=html;if(html)row.querySelector('div')?.appendChild(wrap)});renderSummary(di)}
-function summaryReady(di){const d=DAYS[di],today=cnDate();if(d.date<today)return true;if(d.date>today)return false;return cnHM()>='20:00'}
-function renderSummary(di=selectedDay){const box=$('#simpleItinerary');if(!box)return;$('#cwDailySummary')?.remove();const d=DAYS[di],card=document.createElement('details');card.id='cwDailySummary';card.className='card cw-summary';if(!summaryReady(di)){card.innerHTML=`<summary><div><b>这一天</b><span>当天结束后自动生成</span></div><span>›</span></summary><div class="cw-future-summary">会汇总已到达节点、记账金额和照片数量。</div>`;box.appendChild(card);return}const rows=(state.progress||[]).filter(x=>x.day_date===d.date&&x.arrived_at),max=rows.reduce((m,x)=>Math.max(m,Number(x.stop_index)),0),ratio=rows.length?Math.min(1,max/Math.max(1,d.points.length-1)):0,km=Math.round(d.km*ratio),st=state.daily_stats?.[d.date]||{expense_total:0,expense_count:0,photo_count:0},firstDep=(state.progress||[]).filter(x=>x.day_date===d.date&&x.departed_at).sort((a,b)=>new Date(a.departed_at)-new Date(b.departed_at))[0],lastArr=rows.sort((a,b)=>new Date(b.arrived_at)-new Date(a.arrived_at))[0];card.innerHTML=`<summary><div><b>这一天</b><span>${rows.length}/${d.points.length} 个节点 · 约 ${km}km</span></div><span>展开</span></summary><div class="cw-summary-body"><div><span>路线完成</span><b>${rows.length}/${d.points.length} 个节点</b></div><div><span>估算里程</span><b>约 ${km} km</b></div><div><span>当天记账</span><b>${money(st.expense_total)} · ${st.expense_count||0}笔</b></div><div><span>上传照片</span><b>${st.photo_count||0} 张</b></div><div><span>首次记录出发</span><b>${firstDep?fmtTime(firstDep.departed_at):'—'}</b></div><div><span>最后记录到达</span><b>${lastArr?fmtTime(lastArr.arrived_at):'—'}</b></div></div><div class="cw-next-note">里程按已记录行程节点估算，不冒充车辆真实里程。</div>`;box.appendChild(card)}
-async function refreshState(showToast=false){if(!navigator.onLine){const c=cached();if(c?.data)state=c.data;net('offline');renderAll();return}try{const j=await api('state',{date:cnDate()},8000);state=j;lastGood=Date.now();saveCache(j);net('live');renderAll()}catch(e){const c=cached();if(c?.data)state=c.data;net(navigator.onLine?'weak':'offline');renderAll();if(showToast)toastMsg('云端暂时不可用，正在使用最近缓存')}}
-function renderAll(){renderNext();renderTasks();ensureQuickExpense();enhanceProgress()}
-function toastMsg(t){const e=$('#toast');if(!e)return;e.textContent=t;e.classList.add('show');clearTimeout(e._ta);e._ta=setTimeout(()=>e.classList.remove('show'),2200)}
-async function mark(kind,day,idx){const d=DAYS.find(x=>x.date===day),p=d?.points[idx];if(!d||!p)return;const pos=readPos();try{const j=await api('mark_progress',{day_date:day,stop_index:idx,stop_name:p[1],kind,lat:pos?.lat,lon:pos?.lon});const i=state.progress.findIndex(x=>x.day_date===day&&Number(x.stop_index)===idx);if(i>=0)state.progress[i]=j.progress;else state.progress.push(j.progress);saveCache(state);renderAll();toastMsg(kind==='arrival'?'已记录到达':'已记录出发')}catch(e){toastMsg(e.message||'记录失败')}}
-async function setTask(key,done){const task=defaultTasks().find(x=>x.key===key);if(!task)return;try{const j=await api('set_task',{task_date:cnDate(),task_key:key,title:task.title,done});const i=state.tasks.findIndex(x=>x.task_key===key);if(i>=0)state.tasks[i]=j.task;else state.tasks.push(j.task);saveCache(state);renderTasks()}catch(e){renderTasks();toastMsg('任务同步失败')}}
-function quick(cat,btn){const sel=$('#expCategory'),amt=$('#expAmount'),payer=$('#expPayer');if(sel)sel.value=cat;if(payer)payer.value=ME;$$('#expParticipants input[type="checkbox"]').forEach(x=>x.checked=true);$$('.cw-quick-chip').forEach(x=>x.classList.toggle('on',x===btn));amt?.focus();toastMsg(`已选${cat} · 输入金额即可保存`)}
-function bind(){window.addEventListener('online',()=>refreshState(false));window.addEventListener('offline',()=>net('offline'));document.addEventListener('visibilitychange',()=>{if(!document.hidden)refreshState(false)});document.addEventListener('click',e=>{const q=e.target.closest('[data-exp-cat]');if(q){quick(q.dataset.expCat,q);return}if(e.target.closest('[data-assist-itinerary]')){$('#bottomNav button[data-view="today"]')?.click();setTimeout(()=>$('#simpleItinerary')?.scrollIntoView({behavior:'smooth',block:'start'}),80);return}const p=e.target.closest('[data-progress-kind]');if(p){const d=DAYS.find(x=>x.date===p.dataset.progressDay),pt=d?.points[Number(p.dataset.progressIndex)];if(pt)confirmBox(`${p.dataset.progressKind==='arrival'?'确认已到达':'确认现在出发'}「${pt[1]}」？只有点“确认”才会写入记录。`,()=>mark(p.dataset.progressKind,p.dataset.progressDay,Number(p.dataset.progressIndex)));return}const day=e.target.closest('#simpleItinerary [data-day]');if(day)setTimeout(enhanceProgress,180)});document.addEventListener('change',e=>{const t=e.target.closest?.('[data-assist-task]');if(t)setTask(t.dataset.assistTask,t.checked)})}
-function watchPosition(){const use=p=>{lastPos={lat:p.coords?.latitude??p.lat,lon:p.coords?.longitude??p.lon,time:p.timestamp||p.time||Date.now()};renderNext()};const p=readPos();if(p)use(p);navigator.geolocation?.watchPosition(use,()=>{}, {enableHighAccuracy:true,maximumAge:10000,timeout:12000})}
-function waitInit(){if(!document.documentElement.classList.contains('minimal-ready')||!$('#nextTripCard')||!$('#simpleItinerary')||!$('#expenseForm'))return setTimeout(waitInit,120);ensureNetBadge();ensureTaskCard();ensureQuickExpense();bind();watchPosition();const c=cached();if(c?.data){state=c.data;net(navigator.onLine?'weak':'offline');renderAll()}else net(navigator.onLine?'weak':'offline');refreshState(false);clearInterval(poll);poll=setInterval(()=>{if(!document.hidden)refreshState(false)},45000);document.documentElement.classList.add('travel-assist-ready')}
-if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',()=>setTimeout(waitInit,260),{once:true});else setTimeout(waitInit,260);
+(() => {
+  "use strict";
+  const TEAM = ["瑞子", "普子", "航子", "辉子"];
+  const ME =
+    new URLSearchParams(location.search).get("person") ||
+    localStorage.getItem("cw-person") ||
+    "瑞子";
+  const QA = window.CWSession?.qa === true;
+  if (!TEAM.includes(ME)) return;
+  const ENDPOINT =
+      "https://wpfqcztbxxarsrruuuce.supabase.co/functions/v1/trip-assist",
+    TRIP = "chuanxi2026";
+  const $ = (s) => document.querySelector(s),
+    $$ = (s) => [...document.querySelectorAll(s)];
+  const DAYS = [
+    {
+      date: "2026-10-02",
+      label: "Day 1",
+      route: "天府机场 → 雅安",
+      km: 190,
+      points: [
+        ["16:00", "天府国际机场", 30.312, 104.441, "落地 / 取行李"],
+        ["17:15", "天府国际机场", 30.312, 104.441, "取车完成 / 出发"],
+        ["19:00", "服务区", 30.16, 103.65, "休息 10–15 分钟"],
+        ["21:00", "雅安", 29.98, 103.0, "晚餐 / 补给 / 入住"],
+      ],
+    },
+    {
+      date: "2026-10-03",
+      label: "Day 2",
+      route: "雅安 → 泸定 → 康定 → 折多山 → 新都桥",
+      km: 280,
+      points: [
+        ["06:00", "雅安", 29.98, 103.0, "出发"],
+        ["08:30", "泸定", 29.92, 102.23, "短停"],
+        ["10:30", "康定", 30.05, 101.96, "午饭 / 补给"],
+        ["13:00", "折多山", 30.06, 101.8, "高海拔短停"],
+        ["15:00", "新都桥", 30.04, 101.49, "外围拍摄"],
+        ["18:00", "新都桥", 30.04, 101.49, "入住"],
+      ],
+    },
+    {
+      date: "2026-10-04",
+      label: "Day 3",
+      route: "新都桥 → 塔公 → 八美 → 丹巴中路藏寨",
+      km: 160,
+      points: [
+        ["07:00", "新都桥", 30.04, 101.49, "晨景"],
+        ["09:30", "塔公", 30.32, 101.54, "草原 / 人文"],
+        ["11:45", "八美", 30.55, 101.5, "午饭 / 补给"],
+        ["16:00", "丹巴", 30.88, 101.89, "抵达"],
+        ["17:00", "中路藏寨", 30.89, 101.92, "入住"],
+      ],
+    },
+    {
+      date: "2026-10-05",
+      label: "Day 4",
+      route: "丹巴 → 小金 → 四姑娘山双桥沟",
+      km: 120,
+      points: [
+        ["06:30", "丹巴", 30.88, 101.89, "出发"],
+        ["07:45", "小金", 30.99, 102.36, "早餐 / 加油"],
+        ["09:45", "双桥沟", 31.09, 102.84, "进入景区"],
+        ["13:30", "双桥沟", 31.13, 102.8, "午餐 / 拍照"],
+        ["16:30", "双桥沟", 31.09, 102.84, "出景区"],
+        ["17:00", "四姑娘山镇", 31.1, 102.89, "入住"],
+      ],
+    },
+    {
+      date: "2026-10-06",
+      label: "Day 5",
+      route: "四姑娘山 → 卧龙 → 映秀 → 都江堰 → 天府机场",
+      km: 285,
+      points: [
+        ["05:30", "四姑娘山镇", 31.1, 102.89, "必须早走"],
+        ["08:30", "卧龙", 31.04, 103.18, "休息"],
+        ["10:00", "映秀", 31.06, 103.48, "经过"],
+        ["11:00", "都江堰", 31.0, 103.62, "午饭 / 加油"],
+        ["16:00", "天府国际机场", 30.312, 104.441, "机场附近入住"],
+      ],
+    },
+    {
+      date: "2026-10-07",
+      label: "Day 6",
+      route: "机场酒店 → 还车 → 航站楼",
+      km: 12,
+      points: [
+        ["05:15", "机场酒店", 30.3, 104.44, "起床"],
+        ["05:40", "机场酒店", 30.3, 104.44, "退房"],
+        ["06:10", "还车点", 30.31, 104.43, "补油 / 还车"],
+        ["06:40", "天府国际机场", 30.312, 104.441, "进入航站楼"],
+      ],
+    },
+  ];
+  const ROLE_TASK = {
+    瑞子: {
+      pre: "确认首晚酒店地址、入住方式和联系电话",
+      trip: "确认今晚住宿，并处理今天账本待确认",
+    },
+    普子: {
+      pre: "查看 Day 1 路线、天气和国庆交通风险",
+      trip: "出发前看当天路线、天气和关键路段",
+    },
+    航子: {
+      pre: "核对航班时间、证件和行李要求",
+      trip: "盯住今天关键时间节点，避免行程拖延",
+    },
+    辉子: {
+      pre: "确认租车资料、取车要求和车辆保障",
+      trip: "出发前检查油量、胎压和车辆状态",
+    },
+  };
+  let state = {
+      progress: [],
+      tasks: [],
+      daily_stats: {},
+      settlement: { gets: [], owes: [] },
+    },
+    lastGood = 0,
+    poll = null,
+    lastPos = null,
+    selectedDay = 0;
+  function esc(s) {
+    return String(s ?? "").replace(
+      /[&<>"']/g,
+      (m) =>
+        ({
+          "&": "&amp;",
+          "<": "&lt;",
+          ">": "&gt;",
+          '"': "&quot;",
+          "'": "&#39;",
+        })[m],
+    );
+  }
+  function cnDate() {
+    return new Date().toLocaleDateString("sv-SE", {
+      timeZone: "Asia/Shanghai",
+    });
+  }
+  function cnHM() {
+    return new Date().toLocaleTimeString("zh-CN", {
+      timeZone: "Asia/Shanghai",
+      hour: "2-digit",
+      minute: "2-digit",
+      hour12: false,
+    });
+  }
+  function fmtTime(t) {
+    if (!t) return "—";
+    return new Date(t).toLocaleTimeString("zh-CN", {
+      timeZone: "Asia/Shanghai",
+      hour: "2-digit",
+      minute: "2-digit",
+      hour12: false,
+    });
+  }
+  function money(n) {
+    return (
+      "¥" + Number(n || 0).toLocaleString("zh-CN", { maximumFractionDigits: 2 })
+    );
+  }
+  function dayIndexFor(date = cnDate()) {
+    const i = DAYS.findIndex((x) => x.date === date);
+    if (i >= 0) return i;
+    if (date < DAYS[0].date) return 0;
+    return DAYS.length - 1;
+  }
+  function token() {
+    return (
+      sessionStorage.getItem(`cw-auth-${ME}`) ||
+      (QA ? "qa-token-abcdefghijklmnopqrstuvwxyz" : "")
+    );
+  }
+  function cacheKey() {
+    return `cw-assist-state-${ME}`;
+  }
+  function cached() {
+    try {
+      return JSON.parse(localStorage.getItem(cacheKey()) || "null");
+    } catch {
+      return null;
+    }
+  }
+  function saveCache(v) {
+    try {
+      localStorage.setItem(
+        cacheKey(),
+        JSON.stringify({ saved: Date.now(), data: v }),
+      );
+    } catch {}
+  }
+  async function api(action, payload = {}, timeout = 9000) {
+    const tk = token();
+    if (!tk) throw new Error("登录已失效");
+    const c = new AbortController(),
+      tm = setTimeout(() => c.abort(), timeout);
+    try {
+      const r = await fetch(ENDPOINT, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          trip_slug: TRIP,
+          action,
+          payload: { ...payload, person: ME, token: tk },
+        }),
+        signal: c.signal,
+      });
+      const j = await r.json().catch(() => ({}));
+      if (!r.ok) throw new Error(j.error || "同步失败");
+      return j;
+    } finally {
+      clearTimeout(tm);
+    }
+  }
+  function ensureNetBadge() {
+    if ($("#cwNetBadge")) return;
+    const e = document.createElement("div");
+    e.id = "cwNetBadge";
+    e.className = "cw-net-badge";
+    e.textContent = "连接中";
+    e.title = "云端数据状态";
+    document.body.appendChild(e);
+  }
+  function net(mode) {
+    ensureNetBadge();
+    const e = $("#cwNetBadge");
+    e.className =
+      "cw-net-badge" +
+      (mode === "weak" ? " weak" : mode === "offline" ? " offline" : "");
+    if (mode === "offline") e.textContent = "离线 · 缓存";
+    else if (mode === "weak") e.textContent = "弱网 · 缓存";
+    else e.textContent = "实时";
+    e.title = lastGood
+      ? `云端最近成功同步 ${new Date(lastGood).toLocaleTimeString("zh-CN", { hour: "2-digit", minute: "2-digit", hour12: false })}`
+      : "等待首次同步";
+  }
+  function readPos() {
+    try {
+      const p = JSON.parse(localStorage.getItem("cw-lastpos-v4") || "null");
+      if (p && Number.isFinite(+p.lat) && Number.isFinite(+p.lon)) {
+        lastPos = p;
+        return p;
+      }
+    } catch {}
+    return lastPos;
+  }
+  function hav(lat1, lon1, lat2, lon2) {
+    const R = 6371,
+      p = Math.PI / 180,
+      dLat = (lat2 - lat1) * p,
+      dLon = (lon2 - lon1) * p,
+      a =
+        Math.sin(dLat / 2) ** 2 +
+        Math.cos(lat1 * p) * Math.cos(lat2 * p) * Math.sin(dLon / 2) ** 2;
+    return 2 * R * Math.asin(Math.sqrt(a));
+  }
+  function wgsToGcj(lat, lon) {
+    const PI = Math.PI,
+      a = 6378245,
+      ee = 0.00669342162296594323;
+    if (lon < 72.004 || lon > 137.8347 || lat < 0.8293 || lat > 55.8271)
+      return [lat, lon];
+    const tf = (x, y) =>
+        -100 +
+        2 * x +
+        3 * y +
+        0.2 * y * y +
+        0.1 * x * y +
+        0.2 * Math.sqrt(Math.abs(x)) +
+        ((20 * Math.sin(6 * x * PI) + 20 * Math.sin(2 * x * PI)) * 2) / 3 +
+        ((20 * Math.sin(y * PI) + 40 * Math.sin((y / 3) * PI)) * 2) / 3 +
+        ((160 * Math.sin((y / 12) * PI) + 320 * Math.sin((y * PI) / 30)) * 2) /
+          3,
+      tg = (x, y) =>
+        300 +
+        x +
+        2 * y +
+        0.1 * x * x +
+        0.1 * x * y +
+        0.1 * Math.sqrt(Math.abs(x)) +
+        ((20 * Math.sin(6 * x * PI) + 20 * Math.sin(2 * x * PI)) * 2) / 3 +
+        ((20 * Math.sin(x * PI) + 40 * Math.sin((x / 3) * PI)) * 2) / 3 +
+        ((150 * Math.sin((x / 12) * PI) + 300 * Math.sin((x / 30) * PI)) * 2) /
+          3;
+    let dLat = tf(lon - 105, lat - 35),
+      dLon = tg(lon - 105, lat - 35),
+      r = (lat / 180) * PI,
+      m = 1 - ee * Math.sin(r) ** 2,
+      s = Math.sqrt(m);
+    dLat = (dLat * 180) / (((a * (1 - ee)) / (m * s)) * PI);
+    dLon = (dLon * 180) / ((a / s) * Math.cos(r) * PI);
+    return [lat + dLat, lon + dLon];
+  }
+  function navUrl(point) {
+    const [a, b] = wgsToGcj(point[2], point[3]);
+    return `https://uri.amap.com/navigation?to=${b.toFixed(6)},${a.toFixed(6)},${encodeURIComponent(point[1])}&mode=car&coordinate=gaode&callnative=1`;
+  }
+  function progressFor(day, i) {
+    return (state.progress || []).find(
+      (x) => x.day_date === day && Number(x.stop_index) === i,
+    );
+  }
+  function nextInfo() {
+    const today = cnDate(),
+      di = dayIndexFor(today),
+      d = DAYS[di],
+      hm = cnHM();
+    if (today > DAYS[DAYS.length - 1].date)
+      return { done: true, d, i: d.points.length - 1, p: d.points.at(-1) };
+    let idx = 0;
+    if (today === d.date) {
+      const missing = d.points.findIndex(
+        (p, i) => !progressFor(d.date, i)?.arrived_at && p[0] >= hm,
+      );
+      if (missing >= 0) idx = missing;
+      else {
+        const any = d.points.findIndex(
+          (p, i) => !progressFor(d.date, i)?.arrived_at,
+        );
+        idx = any >= 0 ? any : d.points.length - 1;
+      }
+    }
+    const p = d.points[idx];
+    return { done: false, d, i: idx, p };
+  }
+  function planMinutes(point, date) {
+    const today = cnDate();
+    if (date !== today) return null;
+    const [h, m] = point[0].split(":").map(Number),
+      now = new Date(),
+      target = new Date(now);
+    target.setHours(h, m, 0, 0);
+    return Math.round((target - now) / 60000);
+  }
+  async function sunsetNote(day, point, card) {
+    if (day.date !== cnDate() || !point?.[2]) return;
+    const key = `cw-sunset-${day.date}-${point[2].toFixed(2)}-${point[3].toFixed(2)}`;
+    let sunset = "";
+    try {
+      const c = JSON.parse(localStorage.getItem(key) || "null");
+      if (c && Date.now() - c.saved < 6 * 3600000) sunset = c.sunset;
+    } catch {}
+    if (!sunset && !QA) {
+      try {
+        const u = `https://api.open-meteo.com/v1/forecast?latitude=${point[2]}&longitude=${point[3]}&daily=sunset&timezone=Asia%2FShanghai&start_date=${day.date}&end_date=${day.date}`,
+          r = await fetch(u),
+          j = await r.json();
+        sunset = j.daily?.sunset?.[0] || "";
+        if (sunset)
+          localStorage.setItem(
+            key,
+            JSON.stringify({ saved: Date.now(), sunset }),
+          );
+      } catch {}
+    }
+    if (QA) sunset = `${day.date}T18:30`;
+    if (!sunset) return;
+    const sh = String(sunset).slice(11, 16),
+      planned = point[0];
+    if (planned >= sh) {
+      const n = card.querySelector(".cw-next-note");
+      if (n) {
+        n.textContent = `⚠️ 计划 ${planned} 到达，日落约 ${sh}，注意夜间山路。`;
+        n.classList.add("warn");
+      }
+    } else {
+      const n = card.querySelector(".cw-next-note");
+      if (n) n.textContent = `日落约 ${sh} · 按计划可在天黑前到达`;
+    }
+  }
+  function renderNext() {
+    const old = $("#nextTripCard");
+    if (!old) return;
+    old.classList.add("cw-next-action");
+    const x = nextInfo(),
+      p = x.p,
+      d = x.d;
+    if (x.done) {
+      old.innerHTML =
+        '<div class="cw-next-top"><div><span class="cw-next-kicker">行程完成</span><h2>6天川西反穿已完成</h2></div></div><div class="cw-next-note">可以在“行程”里回看每天记录。</div>';
+      return;
+    }
+    const pos = readPos(),
+      dist = pos ? hav(+pos.lat, +pos.lon, p[2], p[3]) : null,
+      m = planMinutes(p, d.date),
+      timeText =
+        d.date === cnDate()
+          ? m == null
+            ? ""
+            : m > 0
+              ? `按计划约 ${m >= 60 ? Math.floor(m / 60) + "小时" + (m % 60 ? (m % 60) + "分" : "") : m + "分钟"}`
+              : "计划时间已过"
+          : `${d.date.slice(5).replace("-", "/")} ${p[0]}`;
+    old.innerHTML = `<div class="cw-next-top"><div><span class="cw-next-kicker">下一站 · ${esc(d.label)}</span><h2>${esc(p[1])}</h2></div><span class="cw-data-time">云端 ${lastGood ? "刚刚" : "缓存"}</span></div><div class="cw-next-meta"><div><span>计划到达</span><b>${esc(p[0])}</b></div><div><span>${dist != null ? "距当前位置" : "今日路线"}</span><b>${dist != null ? `直线约 ${dist < 10 ? dist.toFixed(1) : Math.round(dist)}km` : esc(d.route)}</b></div><div><span>时间判断</span><b>${esc(timeText || "按当天计划")}</b></div><div><span>当前状态</span><b>${progressFor(d.date, x.i)?.arrived_at ? "已到达" : "未到达"}</b></div></div><div class="cw-next-actions"><a class="primary" href="${navUrl(p)}">一键导航</a><button type="button" class="ghost" data-assist-itinerary>查看当天行程</button></div><div class="cw-next-note">导航时间以高德实际路况为准。</div>`;
+    sunsetNote(d, p, old);
+  }
+  function defaultTasks() {
+    const date = cnDate(),
+      pre = date < DAYS[0].date,
+      after = date > DAYS.at(-1).date,
+      di = dayIndexFor(date),
+      d = DAYS[di];
+    if (after) return [];
+    const arr = [
+      {
+        key: "role",
+        title: ROLE_TASK[ME][pre ? "pre" : "trip"],
+        sub: pre ? "出发前准备" : "今天的个人职责",
+      },
+    ];
+    arr.push({
+      key: "route",
+      title: pre
+        ? `提前看 ${DAYS[0].label}：${DAYS[0].route}`
+        : `确认今天下一站和关键时间点`,
+      sub: pre ? "避免出发当天临时研究" : "30秒看完当天安排",
+    });
+    return arr;
+  }
+  function taskSaved(key) {
+    return (state.tasks || []).find((x) => x.task_key === key);
+  }
+  function ensureTaskCard() {
+    if ($("#cwTaskCard")) return;
+    const next = $("#nextTripCard");
+    if (!next) return;
+    const c = document.createElement("section");
+    c.id = "cwTaskCard";
+    c.className = "card cw-task-card";
+    next.insertAdjacentElement("afterend", c);
+  }
+  function renderTasks() {
+    ensureTaskCard();
+    const c = $("#cwTaskCard");
+    if (!c) return;
+    const tasks = defaultTasks(),
+      sett = state.settlement || { gets: [], owes: [] };
+    if (!tasks.length && !sett.owes?.length && !sett.gets?.length) {
+      c.innerHTML =
+        '<div class="section-head"><div><span class="eyebrow">今天</span><h2>没有待处理事项</h2></div></div>';
+      return;
+    }
+    c.innerHTML = `<div class="section-head"><div><span class="eyebrow">今天</span><h2>还有什么没完成</h2></div><span class="cw-data-time">${tasks.filter((t) => taskSaved(t.key)?.done).length}/${tasks.length}</span></div><div class="cw-task-list">${tasks
+      .map((t) => {
+        const done = !!taskSaved(t.key)?.done;
+        return `<label class="cw-task ${done ? "done" : ""}"><input type="checkbox" data-assist-task="${esc(t.key)}" ${done ? "checked" : ""}><div><b>${esc(t.title)}</b><span>${esc(t.sub)}</span></div></label>`;
+      })
+      .join(
+        "",
+      )}</div>${sett.owes?.length ? `<div class="cw-money-task">待付款：${sett.owes.map((x) => `${esc(x.to)} ${money(x.amount)}`).join(" · ")}</div>` : ""}${sett.gets?.length ? `<div class="cw-money-task">待收款：${sett.gets.map((x) => `${esc(x.from)} ${money(x.amount)}`).join(" · ")}</div>` : ""}`;
+  }
+  function ensureQuickExpense() {
+    const form = $("#expenseForm");
+    if (!form || $("#cwQuickExpense")) return;
+    const e = document.createElement("div");
+    e.id = "cwQuickExpense";
+    e.className = "cw-quick-expense";
+    e.innerHTML =
+      '<div class="cw-quick-title">5秒快捷记账</div><div class="cw-quick-grid"><button type="button" class="cw-quick-chip" data-exp-cat="吃饭">🍜 吃饭</button><button type="button" class="cw-quick-chip" data-exp-cat="油费">⛽ 油费</button><button type="button" class="cw-quick-chip" data-exp-cat="停车">🅿️ 停车</button><button type="button" class="cw-quick-chip" data-exp-cat="过路费">🛣 过路</button><button type="button" class="cw-quick-chip" data-exp-cat="住宿">🏨 住宿</button><button type="button" class="cw-quick-chip" data-exp-cat="门票">🎫 门票</button></div>';
+    form.parentNode.insertBefore(e, form);
+  }
+  function confirmBox(text, onConfirm) {
+    let ov = $("#cwAssistConfirm");
+    if (!ov) {
+      ov = document.createElement("div");
+      ov.id = "cwAssistConfirm";
+      ov.className = "cw-confirm-overlay";
+      document.body.appendChild(ov);
+    }
+    ov.innerHTML = `<div class="cw-confirm-card"><h3>确认记录？</h3><p>${esc(text)}</p><div class="cw-confirm-actions"><button type="button" data-assist-cancel>取消</button><button type="button" class="primary" data-assist-confirm>确认</button></div></div>`;
+    ov.classList.add("show");
+    ov.onclick = (e) => {
+      if (e.target === ov || e.target.closest("[data-assist-cancel]"))
+        ov.classList.remove("show");
+      if (e.target.closest("[data-assist-confirm]")) {
+        ov.classList.remove("show");
+        onConfirm();
+      }
+    };
+  }
+  function enhanceProgress() {
+    const box = $("#simpleItinerary");
+    if (!box) return;
+    const chip = box.querySelector(".day-chip.on"),
+      di = Number(chip?.dataset.day ?? dayIndexFor()),
+      d = DAYS[di];
+    selectedDay = di;
+    const today = cnDate();
+    box.querySelectorAll(".simple-stop").forEach((row, i) => {
+      row.querySelector(".cw-progress-actions")?.remove();
+      const p = d.points[i],
+        rec = progressFor(d.date, i),
+        wrap = document.createElement("div");
+      wrap.className = "cw-progress-actions";
+      let html = "";
+      if (rec?.arrived_at)
+        html += `<span class="cw-progress-stamp">到达 ${fmtTime(rec.arrived_at)}</span>`;
+      if (rec?.departed_at)
+        html += `<span class="cw-progress-stamp">出发 ${fmtTime(rec.departed_at)}</span>`;
+      if (d.date === today) {
+        if (!rec?.arrived_at)
+          html += `<button type="button" class="cw-progress-btn primary" data-progress-kind="arrival" data-progress-day="${d.date}" data-progress-index="${i}">记录到达</button>`;
+        else if (!rec?.departed_at)
+          html += `<button type="button" class="cw-progress-btn" data-progress-kind="departure" data-progress-day="${d.date}" data-progress-index="${i}">记录出发</button>`;
+      }
+      wrap.innerHTML = html;
+      if (html) row.querySelector("div")?.appendChild(wrap);
+    });
+    renderSummary(di);
+  }
+  function summaryReady(di) {
+    const d = DAYS[di],
+      today = cnDate();
+    if (d.date < today) return true;
+    if (d.date > today) return false;
+    return cnHM() >= "20:00";
+  }
+  function renderSummary(di = selectedDay) {
+    const box = $("#simpleItinerary");
+    if (!box) return;
+    $("#cwDailySummary")?.remove();
+    const d = DAYS[di],
+      card = document.createElement("details");
+    card.id = "cwDailySummary";
+    card.className = "card cw-summary";
+    if (!summaryReady(di)) {
+      card.innerHTML = `<summary><div><b>这一天</b><span>当天结束后自动生成</span></div><span>›</span></summary><div class="cw-future-summary">会汇总已到达节点、记账金额和照片数量。</div>`;
+      box.appendChild(card);
+      return;
+    }
+    const rows = (state.progress || []).filter(
+        (x) => x.day_date === d.date && x.arrived_at,
+      ),
+      max = rows.reduce((m, x) => Math.max(m, Number(x.stop_index)), 0),
+      ratio = rows.length
+        ? Math.min(1, max / Math.max(1, d.points.length - 1))
+        : 0,
+      km = Math.round(d.km * ratio),
+      st = state.daily_stats?.[d.date] || {
+        expense_total: 0,
+        expense_count: 0,
+        photo_count: 0,
+      },
+      firstDep = (state.progress || [])
+        .filter((x) => x.day_date === d.date && x.departed_at)
+        .sort((a, b) => new Date(a.departed_at) - new Date(b.departed_at))[0],
+      lastArr = rows.sort(
+        (a, b) => new Date(b.arrived_at) - new Date(a.arrived_at),
+      )[0];
+    card.innerHTML = `<summary><div><b>这一天</b><span>${rows.length}/${d.points.length} 个节点 · 约 ${km}km</span></div><span>展开</span></summary><div class="cw-summary-body"><div><span>路线完成</span><b>${rows.length}/${d.points.length} 个节点</b></div><div><span>估算里程</span><b>约 ${km} km</b></div><div><span>当天记账</span><b>${money(st.expense_total)} · ${st.expense_count || 0}笔</b></div><div><span>上传照片</span><b>${st.photo_count || 0} 张</b></div><div><span>首次记录出发</span><b>${firstDep ? fmtTime(firstDep.departed_at) : "—"}</b></div><div><span>最后记录到达</span><b>${lastArr ? fmtTime(lastArr.arrived_at) : "—"}</b></div></div><div class="cw-next-note">里程按已记录行程节点估算，不冒充车辆真实里程。</div>`;
+    box.appendChild(card);
+  }
+  async function refreshState(showToast = false) {
+    if (!navigator.onLine) {
+      const c = cached();
+      if (c?.data) state = c.data;
+      net("offline");
+      renderAll();
+      return;
+    }
+    try {
+      const j = await api("state", { date: cnDate() }, 8000);
+      state = j;
+      lastGood = Date.now();
+      saveCache(j);
+      net("live");
+      renderAll();
+    } catch (e) {
+      const c = cached();
+      if (c?.data) state = c.data;
+      net(navigator.onLine ? "weak" : "offline");
+      renderAll();
+      if (showToast) toastMsg("云端暂时不可用，正在使用最近缓存");
+    }
+  }
+  function renderAll() {
+    renderNext();
+    renderTasks();
+    ensureQuickExpense();
+    enhanceProgress();
+  }
+  function toastMsg(t) {
+    const e = $("#toast");
+    if (!e) return;
+    e.textContent = t;
+    e.classList.add("show");
+    clearTimeout(e._ta);
+    e._ta = setTimeout(() => e.classList.remove("show"), 2200);
+  }
+  async function mark(kind, day, idx) {
+    const d = DAYS.find((x) => x.date === day),
+      p = d?.points[idx];
+    if (!d || !p) return;
+    const pos = readPos();
+    try {
+      const j = await api("mark_progress", {
+        day_date: day,
+        stop_index: idx,
+        stop_name: p[1],
+        kind,
+        lat: pos?.lat,
+        lon: pos?.lon,
+      });
+      const i = state.progress.findIndex(
+        (x) => x.day_date === day && Number(x.stop_index) === idx,
+      );
+      if (i >= 0) state.progress[i] = j.progress;
+      else state.progress.push(j.progress);
+      saveCache(state);
+      renderAll();
+      toastMsg(kind === "arrival" ? "已记录到达" : "已记录出发");
+    } catch (e) {
+      toastMsg(e.message || "记录失败");
+    }
+  }
+  async function setTask(key, done) {
+    const task = defaultTasks().find((x) => x.key === key);
+    if (!task) return;
+    try {
+      const j = await api("set_task", {
+        task_date: cnDate(),
+        task_key: key,
+        title: task.title,
+        done,
+      });
+      const i = state.tasks.findIndex((x) => x.task_key === key);
+      if (i >= 0) state.tasks[i] = j.task;
+      else state.tasks.push(j.task);
+      saveCache(state);
+      renderTasks();
+    } catch (e) {
+      renderTasks();
+      toastMsg("任务同步失败");
+    }
+  }
+  function quick(cat, btn) {
+    const sel = $("#expCategory"),
+      amt = $("#expAmount"),
+      payer = $("#expPayer");
+    if (sel) sel.value = cat;
+    if (payer) payer.value = ME;
+    $$('#expParticipants input[type="checkbox"]').forEach(
+      (x) => (x.checked = true),
+    );
+    $$(".cw-quick-chip").forEach((x) => x.classList.toggle("on", x === btn));
+    amt?.focus();
+    toastMsg(`已选${cat} · 输入金额即可保存`);
+  }
+  function bind() {
+    window.addEventListener("online", () => refreshState(false));
+    window.addEventListener("offline", () => net("offline"));
+    document.addEventListener("visibilitychange", () => {
+      if (!document.hidden) refreshState(false);
+    });
+    document.addEventListener("click", (e) => {
+      const q = e.target.closest("[data-exp-cat]");
+      if (q) {
+        quick(q.dataset.expCat, q);
+        return;
+      }
+      if (e.target.closest("[data-assist-itinerary]")) {
+        $('#bottomNav button[data-view="today"]')?.click();
+        setTimeout(
+          () =>
+            $("#simpleItinerary")?.scrollIntoView({
+              behavior: "smooth",
+              block: "start",
+            }),
+          80,
+        );
+        return;
+      }
+      const p = e.target.closest("[data-progress-kind]");
+      if (p) {
+        const d = DAYS.find((x) => x.date === p.dataset.progressDay),
+          pt = d?.points[Number(p.dataset.progressIndex)];
+        if (pt)
+          confirmBox(
+            `${p.dataset.progressKind === "arrival" ? "确认已到达" : "确认现在出发"}「${pt[1]}」？只有点“确认”才会写入记录。`,
+            () =>
+              mark(
+                p.dataset.progressKind,
+                p.dataset.progressDay,
+                Number(p.dataset.progressIndex),
+              ),
+          );
+        return;
+      }
+      const day = e.target.closest("#simpleItinerary [data-day]");
+      if (day) setTimeout(enhanceProgress, 180);
+    });
+    document.addEventListener("change", (e) => {
+      const t = e.target.closest?.("[data-assist-task]");
+      if (t) setTask(t.dataset.assistTask, t.checked);
+    });
+  }
+  function watchPosition() {
+    const use = (p) => {
+      lastPos = {
+        lat: p.coords?.latitude ?? p.lat,
+        lon: p.coords?.longitude ?? p.lon,
+        time: p.timestamp || p.time || Date.now(),
+      };
+      renderNext();
+    };
+    const p = readPos();
+    if (p) use(p);
+    navigator.geolocation?.watchPosition(use, () => {}, {
+      enableHighAccuracy: true,
+      maximumAge: 10000,
+      timeout: 12000,
+    });
+  }
+  function waitInit() {
+    if (
+      !document.documentElement.classList.contains("minimal-ready") ||
+      !$("#nextTripCard") ||
+      !$("#simpleItinerary") ||
+      !$("#expenseForm")
+    )
+      return setTimeout(waitInit, 120);
+    ensureNetBadge();
+    ensureTaskCard();
+    ensureQuickExpense();
+    bind();
+    watchPosition();
+    const c = cached();
+    if (c?.data) {
+      state = c.data;
+      net(navigator.onLine ? "weak" : "offline");
+      renderAll();
+    } else net(navigator.onLine ? "weak" : "offline");
+    refreshState(false);
+    clearInterval(poll);
+    poll = setInterval(() => {
+      if (!document.hidden) refreshState(false);
+    }, 45000);
+    document.documentElement.classList.add("travel-assist-ready");
+  }
+  if (document.readyState === "loading")
+    document.addEventListener(
+      "DOMContentLoaded",
+      () => setTimeout(waitInit, 260),
+      { once: true },
+    );
+  else setTimeout(waitInit, 260);
 })();

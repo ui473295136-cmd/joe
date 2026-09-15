@@ -1,66 +1,936 @@
-(()=>{
-'use strict';
-const TEAM=['瑞子','普子','航子','辉子'];
-const ME=new URLSearchParams(location.search).get('person')||localStorage.getItem('cw-person')||'瑞子';
-if(!TEAM.includes(ME))return;
-const ENDPOINT='https://wpfqcztbxxarsrruuuce.supabase.co/functions/v1/trip-social',TRIP='chuanxi2026';
-const QA=new URLSearchParams(location.search).get('qa')==='1';
-const $=s=>document.querySelector(s),$$=s=>[...document.querySelectorAll(s)];
-const DAYS=[
- {date:'2026-10-02',places:['天府机场','雅安'],points:[['16:00','天府国际机场'],['17:15','出发'],['19:00','服务区'],['21:00','雅安']]},
- {date:'2026-10-03',places:['泸定','康定','折多山','新都桥'],points:[['06:00','雅安出发'],['08:30','泸定'],['10:30','康定'],['13:00','折多山'],['15:00','新都桥'],['18:00','入住']]},
- {date:'2026-10-04',places:['新都桥','塔公草原','塔公寺','八美','中路藏寨'],points:[['07:00','新都桥'],['09:30','塔公'],['11:45','八美'],['16:00','丹巴'],['17:00','中路藏寨']]},
- {date:'2026-10-05',places:['丹巴','小金','双桥沟','四姑娘山'],points:[['06:30','丹巴出发'],['07:45','小金'],['09:45','双桥沟'],['16:30','出景区'],['17:00','四姑娘山镇']]},
- {date:'2026-10-06',places:['四姑娘山','卧龙','映秀','都江堰'],points:[['05:30','四姑娘山出发'],['08:30','卧龙'],['10:00','映秀'],['11:00','都江堰'],['16:00','天府机场']]},
- {date:'2026-10-07',places:['天府机场'],points:[['05:40','退房'],['06:10','还车'],['06:40','航站楼']]}
-];
-let S={profiles:[],statuses:[],nudges:[],readiness:[],driver_sessions:[],expense_reactions:[],inspirations:[],votes:[],progress:[]},poll=null,lastGood=0,deckIndex=0,currentDay=0;
-const esc=s=>String(s??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
-function token(){return sessionStorage.getItem(`cw-auth-${ME}`)||(QA?'qa-token-abcdefghijklmnopqrstuvwxyz':'')}
-async function api(action,payload={},timeout=9000){const tk=token();if(!tk)throw new Error('登录已失效');const c=new AbortController(),tm=setTimeout(()=>c.abort(),timeout);try{const r=await fetch(ENDPOINT,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({trip_slug:TRIP,action,payload:{...payload,person:ME,token:tk}}),signal:c.signal});const j=await r.json().catch(()=>({}));if(!r.ok)throw new Error(j.error||'同步失败');return j}finally{clearTimeout(tm)}}
-function toast(msg){const e=$('#toast');if(e){e.textContent=msg;e.classList.add('show');clearTimeout(e._t);e._t=setTimeout(()=>e.classList.remove('show'),2400)}else console.log(msg)}
-function cnDate(){return new Date().toLocaleDateString('sv-SE',{timeZone:'Asia/Shanghai'})}
-function cnHM(){return new Date().toLocaleTimeString('zh-CN',{timeZone:'Asia/Shanghai',hour:'2-digit',minute:'2-digit',hour12:false})}
-function profile(p){return S.profiles.find(x=>x.person===p)||{person:p,nickname:p,role:'',avatar_url:''}}
-function pname(p){return profile(p).nickname||p}
-function pimg(p){return profile(p).avatar_url||''}
-function age(t){if(!t)return'未同步';const d=Date.now()-new Date(t).getTime();if(d<30000)return'刚刚';if(d<60000)return`${Math.max(1,Math.round(d/1000))}秒前`;if(d<3600000)return`${Math.round(d/60000)}分钟前`;return`${Math.round(d/3600000)}小时前`}
-function online(p){const t=profile(p).last_seen;return !!t&&Date.now()-new Date(t).getTime()<120000}
-function statusFor(p){const s=S.statuses.find(x=>x.person===p);return s&&(!s.expires_at||new Date(s.expires_at).getTime()>Date.now())?s:null}
-function currentDriver(){return S.driver_sessions.find(x=>!x.ended_at)||null}
-function durationText(sec){sec=Math.max(0,Math.round(sec));const h=Math.floor(sec/3600),m=Math.floor((sec%3600)/60);return h?`${h}小时${m?m+'分':''}`:`${m||1}分钟`}
-function driverTotals(){const d=cnDate(),out=Object.fromEntries(TEAM.map(p=>[p,0]));for(const x of S.driver_sessions){const sd=new Date(x.started_at).toLocaleDateString('sv-SE',{timeZone:'Asia/Shanghai'});if(sd!==d)continue;const end=x.ended_at?new Date(x.ended_at).getTime():Date.now();out[x.person]+=Math.max(0,(end-new Date(x.started_at).getTime())/1000)}return out}
-function checkpoint(){const d=cnDate();if(d<'2026-10-02')return{key:'2026-10-02-prep',label:'10/2 出发前准备'};const di=DAYS.findIndex(x=>x.date===d);if(di<0)return null;const hm=cnHM(),day=DAYS[di],p=day.points.find(x=>x[0]>=hm)||day.points.at(-1);return{key:`${day.date}-${p[0]}-${p[1]}`,label:`${p[1]}前 · 全员准备`}}
-function readyRows(){const c=checkpoint();return c?TEAM.map(p=>S.readiness.find(x=>x.checkpoint_key===c.key&&x.person===p)):[]}
-function ensureCard(){if($('#cwSocialCard'))return;const next=$('#nextTripCard')||$('.now-card');if(!next)return;const card=document.createElement('section');card.id='cwSocialCard';card.className='card cw-social-card';card.innerHTML='<div class="cw-social-head"><div><span class="eyebrow">四个人</span><h2>现在大家怎么样</h2></div><span id="cwSocialSummary" class="cw-social-summary">正在同步</span></div><div id="cwMemberRow" class="cw-member-row"></div><div class="cw-social-tools"><button type="button" class="ghost" id="cwMyStatus">设置我的状态</button><button type="button" class="ghost" id="cwRefreshSocial">刷新状态</button></div><div id="cwReadyBox" class="cw-ready-box"></div><div id="cwDriverBox" class="cw-driver-box"></div>';next.insertAdjacentElement('afterend',card)}
-function memberHtml(p,driver){const x=profile(p),st=statusFor(p),isOnline=online(p),isDriver=driver?.person===p,u=x.avatar_url||'';return`<button type="button" class="cw-member ${isOnline?'online':''} ${isDriver?'driver':''} ${st?'status':''}" data-social-person="${p}"><span class="cw-member-face">${u?`<img src="${esc(u)}" alt="${esc(pname(p))}">`:`<span class="fallback">${p[0]}</span>`}${isDriver?'<i class="cw-member-wheel">🚗</i>':''}${st?`<i class="cw-member-emoji">${esc(st.emoji||'●')}</i>`:''}</span><b>${esc(pname(p))}</b><small class="cw-online-age ${isOnline?'':'stale'}">${st?esc(st.label||''):(isOnline?age(x.last_seen):age(x.last_seen))}</small></button>`}
-function renderReady(){const box=$('#cwReadyBox'),c=checkpoint();if(!box)return;if(!c){box.innerHTML='';box.style.display='none';return}box.style.display='block';const rows=readyRows(),count=rows.filter(Boolean).filter(x=>x.ready).length,my=rows[TEAM.indexOf(ME)]?.ready;box.innerHTML=`<div class="cw-ready-head"><div><span class="eyebrow">准备好了没</span><h3>${esc(c.label)}</h3></div><b>${count}/4</b></div><div class="cw-ready-people">${TEAM.map((p,i)=>`<div class="cw-ready-person ${rows[i]?.ready?'ready':''}"><span>${rows[i]?.ready?'✓':'○'}</span><b>${esc(pname(p))}</b><small>${rows[i]?.ready?'已准备':'还没点'}</small></div>`).join('')}</div><div class="cw-ready-actions"><button type="button" class="${my?'ghost':'primary'}" id="cwReadyToggle">${my?'取消准备':'我好了'}</button></div>`}
-function renderDriver(){const box=$('#cwDriverBox');if(!box)return;const d=currentDriver(),tot=driverTotals();const u=d?pimg(d.person):'';box.innerHTML=`<div class="cw-driver-head"><div><span class="eyebrow">谁在开车</span><h3>${d?`${esc(pname(d.person))}正在驾驶`:'当前未记录驾驶员'}</h3></div>${d?.person===ME?'<span>是我</span>':''}</div><div class="cw-driver-main">${d?(u?`<img class="cw-driver-avatar" src="${esc(u)}" alt="">`:`<span class="cw-driver-avatar" style="display:grid;place-items:center">${d.person[0]}</span>`):'<span class="cw-driver-avatar" style="display:grid;place-items:center">🚗</span>'}<div><b>${d?`本次已开 ${durationText((Date.now()-new Date(d.started_at).getTime())/1000)}`:'换司机时点一下即可'}</b><span>每个人当天驾驶时长会自动累计</span></div><button type="button" class="${d?.person===ME?'ghost':'primary'}" id="cwTakeWheel">${d?.person===ME?'结束驾驶':'我来开'}</button></div><div class="cw-driver-times">${TEAM.map(p=>`<span>${esc(pname(p))} ${tot[p]?durationText(tot[p]):'0分'}</span>`).join('')}</div>`}
-function renderSocial(){ensureCard();const d=currentDriver(),on=TEAM.filter(online).length,c=checkpoint(),ready=c?readyRows().filter(Boolean).filter(x=>x.ready).length:0;$('#cwMemberRow').innerHTML=TEAM.map(p=>memberHtml(p,d)).join('');const parts=[`${on}人在线`];if(d)parts.push(`${pname(d.person)}在开车`);if(c)parts.push(`${ready}/4已准备`);$('#cwSocialSummary').textContent=parts.join(' · ');renderReady();renderDriver();showIncoming();injectReactions();maybeCelebrate();renderInspiration()}
-function ensureSheet(){if($('#cwSocialSheet'))return;const e=document.createElement('div');e.id='cwSocialSheet';e.className='cw-sheet';e.innerHTML='<div class="cw-sheet-card" id="cwSocialSheetBody"></div>';document.body.appendChild(e);e.addEventListener('click',ev=>{if(ev.target===e)e.classList.remove('show')})}
-function openSheet(html){ensureSheet();$('#cwSocialSheetBody').innerHTML=html;$('#cwSocialSheet').classList.add('show')}
-function closeSheet(){$('#cwSocialSheet')?.classList.remove('show')}
-function statusSheet(){const opts=[['😴','困了'],['🚗','我在开车'],['📸','想拍照'],['🍜','饿了'],['🚻','想停车'],['☕','想喝咖啡']];openSheet(`<h3>我的临时状态</h3><p>其他三个人会在头像上看到，2小时后自动消失。</p><div class="cw-sheet-grid">${opts.map(x=>`<button data-set-status="${x[0]}" data-status-label="${x[1]}">${x[0]} ${x[1]}</button>`).join('')}<button class="wide" data-clear-status>清除状态</button></div>`)}
-function nudgeSheet(p){const opts=[['催一下','催一下'],['到哪了','到哪了？'],['看账本','看一下账本'],['该出发了','该出发了']];openSheet(`<h3>戳一下 ${esc(pname(p))}</h3><p>只发一个轻提醒，不做聊天。</p><div class="cw-sheet-grid">${opts.map(x=>`<button data-nudge-to="${p}" data-nudge-kind="${x[0]}" data-nudge-msg="${x[1]}">${x[1]}</button>`).join('')}</div>`)}
-function ensureNudge(){if($('#cwNudgeBanner'))return;const b=document.createElement('div');b.id='cwNudgeBanner';b.className='cw-nudge-banner';b.innerHTML='<div><b id="cwNudgeTitle"></b><span id="cwNudgeText"></span></div><button type="button" id="cwNudgeSeen">知道了</button>';document.body.appendChild(b)}
-function showIncoming(){ensureNudge();const unseen=S.nudges.filter(x=>!x.seen_at);if(!unseen.length){$('#cwNudgeBanner').classList.remove('show');return}const n=unseen[0];$('#cwNudgeTitle').textContent=`${pname(n.from_person)} 戳了你一下${unseen.length>1?` · 还有${unseen.length-1}条`:''}`;$('#cwNudgeText').textContent=n.message||n.kind;$('#cwNudgeBanner').classList.add('show')}
-function expenseIdFromItem(el){return el.querySelector('[data-ledger="edit-exp"]')?.dataset.id||el.querySelector('[data-ledger="ack"]')?.dataset.id||el.querySelector('[data-ledger="del-exp"]')?.dataset.id||''}
-function reactionSummary(id){const rs=S.expense_reactions.filter(x=>String(x.expense_id)===String(id));return rs.length?rs.map(x=>`${pname(x.person)} ${x.reaction}`).join(' · '):'还没人反馈'}
-function injectReactions(){const list=$('#ledgerList');if(!list)return;for(const item of list.querySelectorAll('.ledger-item')){const id=expenseIdFromItem(item);if(!id)continue;let box=item.querySelector('.cw-reactions');if(!box){box=document.createElement('div');box.className='cw-reactions';item.appendChild(box)}const mine=S.expense_reactions.find(x=>String(x.expense_id)===String(id)&&x.person===ME)?.reaction;box.innerHTML=`<div class="cw-reaction-btns">${['👌','👍','💸'].map(r=>`<button type="button" class="${mine===r?'on':''}" data-exp-react="${r}" data-expense-id="${id}">${r} ${r==='👌'?'知道了':r==='👍'?'收到':'已记住'}</button>`).join('')}</div><div class="cw-reaction-people">${esc(reactionSummary(id))}</div>`}}
-function maybeCelebrate(){const recent=S.progress.filter(x=>x.arrived_at).sort((a,b)=>new Date(b.arrived_at)-new Date(a.arrived_at))[0];if(!recent)return;const key=`cw-arrival-seen-${ME}-${recent.day_date}-${recent.stop_index}-${recent.arrived_at}`;if(localStorage.getItem(key))return;if(Date.now()-new Date(recent.arrived_at).getTime()>30*60*1000)return;localStorage.setItem(key,'1');let ov=$('#cwArrival');if(!ov){ov=document.createElement('div');ov.id='cwArrival';ov.className='cw-arrival';document.body.appendChild(ov)}ov.innerHTML=`<div class="cw-arrival-card"><div class="cw-arrival-faces">${TEAM.map(p=>pimg(p)?`<img src="${esc(pimg(p))}" alt="${esc(pname(p))}">`:`<span>${p[0]}</span>`).join('')}</div><h2>你们到达 ${esc(recent.stop_name)} 啦</h2><p>${new Date(recent.arrived_at).toLocaleTimeString('zh-CN',{hour:'2-digit',minute:'2-digit',hour12:false})} · 今日节点已记录</p><button type="button" class="primary" id="cwArrivalOk">我们到了</button></div>`;ov.classList.add('show')}
-function selectedDayIndex(){const n=Number($('#simpleItinerary [data-day].on')?.dataset.day);return Number.isFinite(n)?n:0}
-function ensureInspiration(){const host=$('#simpleItinerary .itinerary-card');if(!host||$('#cwInspiration'))return;const sec=document.createElement('section');sec.id='cwInspiration';sec.className='cw-inspiration';host.appendChild(sec)}
-function voteMap(id){const arr=S.votes.filter(x=>x.inspiration_id===id),likes=arr.filter(x=>x.vote===1).map(x=>x.person),no=arr.filter(x=>x.vote===-1).map(x=>x.person);return{likes,no,mine:arr.find(x=>x.person===ME)?.vote||0}}
-function voteFaces(arr){return arr.length?arr.map(p=>`<i title="${esc(pname(p))}">${p[0]}</i>`).join(''):'<span>暂无</span>'}
-function itemHtml(x,behind=false){const v=voteMap(x.id),suggest=v.likes.length>=3?'🔥 大家都喜欢，建议列为必拍':v.likes.length>=2&&v.no.length===0?'✓ 多数人喜欢，值得留时间':v.no.length>=2?'可以跳过，优先拍别的':'左右滑动一起决定';return`<article class="cw-insp-card ${behind?'behind':''}" data-insp-id="${x.id}"><div class="cw-swipe-stamp nope">不拍</div><div class="cw-swipe-stamp like">想拍</div><div class="cw-insp-photo" style="${x.image_url?`background-image:url('${String(x.image_url).replace(/'/g,'%27')}')`:''}"><div class="cw-insp-place"><b>${esc(x.place)}</b><span>${esc(x.source_type||'灵感库')}</span></div></div><div class="cw-insp-body"><h4>${esc(x.title)}</h4><p>${esc(x.pose_tip||'到现场按光线和安全条件调整。')}</p><div class="cw-insp-tags">${(x.tags||[]).map(t=>`<span>${esc(t)}</span>`).join('')}</div><div class="cw-insp-votes"><span>👍 <span class="cw-insp-vote-avatars">${voteFaces(v.likes)}</span></span><span>👎 <span class="cw-insp-vote-avatars">${voteFaces(v.no)}</span></span></div><div class="cw-insp-suggest">${suggest}</div><div class="cw-insp-source">${x.source_url?`<a href="${esc(x.source_url)}" target="_blank" rel="noopener">查看来源</a>`:''}<button type="button" data-open-import="${esc(x.place)}">收一个新灵感</button></div></div></article>`}
-function renderInspiration(){ensureInspiration();const host=$('#cwInspiration');if(!host)return;currentDay=selectedDayIndex();const day=DAYS[currentDay],items=S.inspirations.filter(x=>!x.day_date||String(x.day_date).slice(0,10)===day.date);if(!items.length){host.innerHTML='<div class="cw-insp-empty">这一天还没有拍照灵感。可以从小红书找灵感后，把链接或截图收进来。</div>';return}const unv=items.filter(x=>!voteMap(x.id).mine),ordered=[...unv,...items.filter(x=>voteMap(x.id).mine)];if(deckIndex>=ordered.length)deckIndex=0;const cur=ordered[deckIndex],next=ordered[(deckIndex+1)%ordered.length],place=cur?.place||day.places[0];host.innerHTML=`<div class="cw-insp-head"><div><span class="eyebrow">拍照灵感</span><h3>${esc(place)} · 一起挑姿势</h3><div class="cw-insp-sub">左滑不喜欢 · 右滑喜欢 · 结果四人同步</div></div><a class="cw-insp-search" href="https://www.xiaohongshu.com/search_result?keyword=${encodeURIComponent(place+' 拍照 姿势') }" target="_blank" rel="noopener">去小红书找灵感</a></div><div class="cw-insp-deck">${ordered.length>1?itemHtml(next,true):''}${itemHtml(cur,false)}</div><div class="cw-insp-controls"><button type="button" class="no" data-swipe-vote="-1">👎</button><button type="button" class="yes" data-swipe-vote="1">👍</button></div><div class="cw-insp-note">系统图库使用可公开复用的来源或你们自己上传的截图/参考图；外部内容保留来源链接，不把第三方完整笔记复制进来。</div>`;bindSwipe()}
-function bindSwipe(){const card=$('#cwInspiration .cw-insp-card:not(.behind)');if(!card)return;let start=null,dx=0;const move=e=>{if(!start)return;const p=e.touches?.[0]||e;dx=p.clientX-start.x;card.style.transform=`translateX(${dx}px) rotate(${dx/22}deg)`;const a=Math.min(1,Math.abs(dx)/90);card.querySelector(dx>0?'.like':'.nope').style.opacity=a};const end=()=>{if(!start)return;const v=dx>80?1:dx<-80?-1:0;start=null;if(v)commitVote(card.dataset.inspId,v,card);else{card.style.transform='';card.querySelectorAll('.cw-swipe-stamp').forEach(x=>x.style.opacity='0')}};card.addEventListener('pointerdown',e=>{start={x:e.clientX};dx=0;card.setPointerCapture?.(e.pointerId)});card.addEventListener('pointermove',move);card.addEventListener('pointerup',end);card.addEventListener('pointercancel',end)}
-async function commitVote(id,vote,card){if(card){card.style.transform=`translateX(${vote>0?520:-520}px) rotate(${vote>0?18:-18}deg)`;card.style.opacity='0'}const old=S.votes.find(x=>x.inspiration_id===id&&x.person===ME);if(old)old.vote=vote;else S.votes.push({inspiration_id:id,person:ME,vote});deckIndex++;setTimeout(renderInspiration,180);try{await api('vote_inspiration',{inspiration_id:id,vote});await refresh(false)}catch(e){toast('投票同步失败，稍后重试')}}
-function fileToData(file){return new Promise((res,rej)=>{const img=new Image(),u=URL.createObjectURL(file);img.onload=()=>{const s=Math.min(1,1200/Math.max(img.width,img.height)),c=document.createElement('canvas');c.width=Math.max(1,Math.round(img.width*s));c.height=Math.max(1,Math.round(img.height*s));c.getContext('2d').drawImage(img,0,0,c.width,c.height);URL.revokeObjectURL(u);res(c.toDataURL('image/jpeg',.78))};img.onerror=rej;img.src=u})}
-function importSheet(place=''){const day=DAYS[selectedDayIndex()];openSheet(`<h3>收进我们的灵感库</h3><p>可以粘贴小红书原笔记链接，并上传你们自己的截图/参考图；来源链接会一直保留。</p><div class="cw-import-form"><label>地点<select id="cwImpPlace">${day.places.map(p=>`<option ${p===place?'selected':''}>${esc(p)}</option>`).join('')}</select></label><label>标题<input id="cwImpTitle" placeholder="例如：男生靠车侧身"></label><label>拍摄建议<textarea id="cwImpTip" placeholder="站位、焦段、构图、动作"></textarea></label><label>小红书/原始来源链接<input id="cwImpUrl" inputmode="url" placeholder="https://..."></label><label>截图或参考图（可选）<input id="cwImpFile" type="file" accept="image/*"></label><div class="cw-import-actions"><button type="button" class="ghost" data-sheet-close>取消</button><button type="button" class="primary" id="cwImpSave">保存灵感</button></div></div>`)}
-async function saveImport(){const title=$('#cwImpTitle')?.value.trim(),place=$('#cwImpPlace')?.value||'',tip=$('#cwImpTip')?.value.trim()||'',source_url=$('#cwImpUrl')?.value.trim()||'',file=$('#cwImpFile')?.files?.[0];if(!title)return toast('先写一个灵感标题');let data_url='';try{if(file)data_url=await fileToData(file);$('#cwImpSave').disabled=true;await api('add_inspiration',{day_date:DAYS[selectedDayIndex()].date,place,title,pose_tip:tip,source_url,data_url,tags:['四人收藏']},15000);closeSheet();toast('已加入四人灵感库');await refresh(true)}catch(e){toast(e.message)}finally{if($('#cwImpSave'))$('#cwImpSave').disabled=false}}
-async function refresh(render=true){try{const j=await api('state');S={...S,...j};lastGood=Date.now();localStorage.setItem(`cw-social-cache-${ME}`,JSON.stringify({saved:lastGood,data:S}));if(render)renderSocial()}catch(e){try{const c=JSON.parse(localStorage.getItem(`cw-social-cache-${ME}`)||'null');if(c?.data){S={...S,...c.data};if(render)renderSocial()}}catch{} }}
-function bind(){document.addEventListener('click',async e=>{const m=e.target.closest('[data-social-person]');if(m){m.dataset.socialPerson===ME?statusSheet():nudgeSheet(m.dataset.socialPerson);return}if(e.target.closest('#cwMyStatus'))return statusSheet();if(e.target.closest('#cwRefreshSocial'))return refresh(true);const st=e.target.closest('[data-set-status]');if(st){try{await api('set_status',{emoji:st.dataset.setStatus,label:st.dataset.statusLabel,ttl_minutes:120});closeSheet();await refresh(true);toast('状态已同步给大家')}catch(x){toast(x.message)}return}if(e.target.closest('[data-clear-status]')){try{await api('clear_status');closeSheet();await refresh(true)}catch(x){toast(x.message)}return}const n=e.target.closest('[data-nudge-to]');if(n){try{await api('nudge',{to_person:n.dataset.nudgeTo,kind:n.dataset.nudgeKind,message:n.dataset.nudgeMsg});closeSheet();toast(`已戳 ${pname(n.dataset.nudgeTo)} 一下`)}catch(x){toast(x.message)}return}if(e.target.closest('#cwNudgeSeen')){try{await api('mark_nudges_seen');S.nudges.forEach(x=>x.seen_at=x.seen_at||new Date().toISOString());showIncoming()}catch{}return}if(e.target.closest('#cwReadyToggle')){const c=checkpoint(),mine=S.readiness.find(x=>x.checkpoint_key===c?.key&&x.person===ME)?.ready;try{await api('set_ready',{checkpoint_key:c.key,checkpoint_label:c.label,ready:!mine});await refresh(true)}catch(x){toast(x.message)}return}if(e.target.closest('#cwTakeWheel')){const d=currentDriver();if(d?.person===ME){if(!confirm('确认结束本次驾驶记录？'))return;try{await api('stop_driving');await api('clear_status').catch(()=>{});await refresh(true)}catch(x){toast(x.message)}}else{const msg=d?`当前是 ${pname(d.person)} 在开车。确认切换为你驾驶吗？`:'确认开始记录你为当前驾驶员？';if(!confirm(msg))return;try{await api('take_wheel');await api('set_status',{emoji:'🚗',label:'我在开车',ttl_minutes:240}).catch(()=>{});await refresh(true)}catch(x){toast(x.message)}}return}const r=e.target.closest('[data-exp-react]');if(r){try{await api('react_expense',{expense_id:r.dataset.expenseId,reaction:r.dataset.expReact});const old=S.expense_reactions.find(x=>String(x.expense_id)===String(r.dataset.expenseId)&&x.person===ME);if(old)old.reaction=r.dataset.expReact;else S.expense_reactions.push({expense_id:r.dataset.expenseId,person:ME,reaction:r.dataset.expReact});injectReactions()}catch(x){toast(x.message)}return}if(e.target.closest('#cwArrivalOk')){$('#cwArrival')?.classList.remove('show');return}const sv=e.target.closest('[data-swipe-vote]');if(sv){const card=$('#cwInspiration .cw-insp-card:not(.behind)');if(card)commitVote(card.dataset.inspId,Number(sv.dataset.swipeVote),card);return}const oi=e.target.closest('[data-open-import]');if(oi){importSheet(oi.dataset.openImport||'');return}if(e.target.closest('[data-sheet-close]')){closeSheet();return}if(e.target.closest('#cwImpSave')){saveImport();return}const day=e.target.closest('#simpleItinerary [data-day]');if(day){deckIndex=0;setTimeout(renderInspiration,80)}});const ledger=$('#ledgerList');if(ledger)new MutationObserver(()=>injectReactions()).observe(ledger,{childList:true,subtree:true})}
-function init(){ensureCard();ensureSheet();ensureNudge();bind();try{const c=JSON.parse(localStorage.getItem(`cw-social-cache-${ME}`)||'null');if(c?.data){S={...S,...c.data};renderSocial()}}catch{}refresh(true);poll=setInterval(()=>{if(!document.hidden)refresh(true)},15000);document.addEventListener('visibilitychange',()=>{if(!document.hidden)refresh(true)});setInterval(()=>{if(!document.hidden&&$('#cwSocialCard')){renderDriver();const d=currentDriver();if(d)$('#cwSocialSummary').textContent=[`${TEAM.filter(online).length}人在线`,`${pname(d.person)}在开车`,checkpoint()?`${readyRows().filter(Boolean).filter(x=>x.ready).length}/4已准备`:null].filter(Boolean).join(' · ')}},60000);document.documentElement.classList.add('cw-social-ready')}
-const wait=()=>{if($('#app')&&!$('#app').hidden&&$('#nextTripCard'))init();else setTimeout(wait,100)};wait();
+(() => {
+  "use strict";
+  const TEAM = ["瑞子", "普子", "航子", "辉子"];
+  const ME =
+    new URLSearchParams(location.search).get("person") ||
+    localStorage.getItem("cw-person") ||
+    "瑞子";
+  if (!TEAM.includes(ME)) return;
+  const ENDPOINT =
+      "https://wpfqcztbxxarsrruuuce.supabase.co/functions/v1/trip-social",
+    TRIP = "chuanxi2026";
+  const QA = window.CWSession?.qa === true;
+  const $ = (s) => document.querySelector(s),
+    $$ = (s) => [...document.querySelectorAll(s)];
+  const DAYS = [
+    {
+      date: "2026-10-02",
+      places: ["天府机场", "雅安"],
+      points: [
+        ["16:00", "天府国际机场"],
+        ["17:15", "出发"],
+        ["19:00", "服务区"],
+        ["21:00", "雅安"],
+      ],
+    },
+    {
+      date: "2026-10-03",
+      places: ["泸定", "康定", "折多山", "新都桥"],
+      points: [
+        ["06:00", "雅安出发"],
+        ["08:30", "泸定"],
+        ["10:30", "康定"],
+        ["13:00", "折多山"],
+        ["15:00", "新都桥"],
+        ["18:00", "入住"],
+      ],
+    },
+    {
+      date: "2026-10-04",
+      places: ["新都桥", "塔公草原", "塔公寺", "八美", "中路藏寨"],
+      points: [
+        ["07:00", "新都桥"],
+        ["09:30", "塔公"],
+        ["11:45", "八美"],
+        ["16:00", "丹巴"],
+        ["17:00", "中路藏寨"],
+      ],
+    },
+    {
+      date: "2026-10-05",
+      places: ["丹巴", "小金", "双桥沟", "四姑娘山"],
+      points: [
+        ["06:30", "丹巴出发"],
+        ["07:45", "小金"],
+        ["09:45", "双桥沟"],
+        ["16:30", "出景区"],
+        ["17:00", "四姑娘山镇"],
+      ],
+    },
+    {
+      date: "2026-10-06",
+      places: ["四姑娘山", "卧龙", "映秀", "都江堰"],
+      points: [
+        ["05:30", "四姑娘山出发"],
+        ["08:30", "卧龙"],
+        ["10:00", "映秀"],
+        ["11:00", "都江堰"],
+        ["16:00", "天府机场"],
+      ],
+    },
+    {
+      date: "2026-10-07",
+      places: ["天府机场"],
+      points: [
+        ["05:40", "退房"],
+        ["06:10", "还车"],
+        ["06:40", "航站楼"],
+      ],
+    },
+  ];
+  let refreshing = null;
+  let S = {
+      profiles: [],
+      statuses: [],
+      nudges: [],
+      readiness: [],
+      driver_sessions: [],
+      expense_reactions: [],
+      inspirations: [],
+      votes: [],
+      progress: [],
+    },
+    poll = null,
+    lastGood = 0,
+    deckIndex = 0,
+    currentDay = 0,
+    voteBusy = false,
+    swiping = false;
+  const esc = (s) =>
+    String(s ?? "").replace(
+      /[&<>"']/g,
+      (m) =>
+        ({
+          "&": "&amp;",
+          "<": "&lt;",
+          ">": "&gt;",
+          '"': "&quot;",
+          "'": "&#39;",
+        })[m],
+    );
+  function token() {
+    return (
+      sessionStorage.getItem(`cw-auth-${ME}`) ||
+      (QA ? "qa-token-abcdefghijklmnopqrstuvwxyz" : "")
+    );
+  }
+  async function api(action, payload = {}, timeout = 9000) {
+    const tk = token();
+    if (!tk) throw new Error("登录已失效");
+    const c = new AbortController(),
+      tm = setTimeout(() => c.abort(), timeout);
+    try {
+      const r = await fetch(ENDPOINT, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          trip_slug: TRIP,
+          action,
+          payload: { ...payload, person: ME, token: tk },
+        }),
+        signal: c.signal,
+      });
+      const j = await r.json().catch(() => ({}));
+      if (!r.ok) throw new Error(j.error || "同步失败");
+      return j;
+    } finally {
+      clearTimeout(tm);
+    }
+  }
+  function toast(msg) {
+    const e = $("#toast");
+    if (e) {
+      e.textContent = msg;
+      e.classList.add("show");
+      clearTimeout(e._t);
+      e._t = setTimeout(() => e.classList.remove("show"), 2400);
+    } else console.log(msg);
+  }
+  function cnDate() {
+    return new Date().toLocaleDateString("sv-SE", {
+      timeZone: "Asia/Shanghai",
+    });
+  }
+  function cnHM() {
+    return new Date().toLocaleTimeString("zh-CN", {
+      timeZone: "Asia/Shanghai",
+      hour: "2-digit",
+      minute: "2-digit",
+      hour12: false,
+    });
+  }
+  function profile(p) {
+    return (
+      S.profiles.find((x) => x.person === p) || {
+        person: p,
+        nickname: p,
+        role: "",
+        avatar_url: "",
+      }
+    );
+  }
+  function pname(p) {
+    return profile(p).nickname || p;
+  }
+  function pimg(p) {
+    return profile(p).avatar_url || "";
+  }
+  function age(t) {
+    if (!t) return "未同步";
+    const d = Date.now() - new Date(t).getTime();
+    if (d < 30000) return "刚刚";
+    if (d < 60000) return `${Math.max(1, Math.round(d / 1000))}秒前`;
+    if (d < 3600000) return `${Math.round(d / 60000)}分钟前`;
+    return `${Math.round(d / 3600000)}小时前`;
+  }
+  function online(p) {
+    const t = profile(p).last_seen;
+    return !!t && Date.now() - new Date(t).getTime() < 120000;
+  }
+  function statusFor(p) {
+    const s = S.statuses.find((x) => x.person === p);
+    return s && (!s.expires_at || new Date(s.expires_at).getTime() > Date.now())
+      ? s
+      : null;
+  }
+  function currentDriver() {
+    return S.driver_sessions.find((x) => !x.ended_at) || null;
+  }
+  function durationText(sec) {
+    sec = Math.max(0, Math.round(sec));
+    const h = Math.floor(sec / 3600),
+      m = Math.floor((sec % 3600) / 60);
+    return h ? `${h}小时${m ? m + "分" : ""}` : `${m || 1}分钟`;
+  }
+  function driverTotals() {
+    const d = cnDate(),
+      out = Object.fromEntries(TEAM.map((p) => [p, 0]));
+    for (const x of S.driver_sessions) {
+      const sd = new Date(x.started_at).toLocaleDateString("sv-SE", {
+        timeZone: "Asia/Shanghai",
+      });
+      if (sd !== d) continue;
+      const end = x.ended_at ? new Date(x.ended_at).getTime() : Date.now();
+      out[x.person] += Math.max(
+        0,
+        (end - new Date(x.started_at).getTime()) / 1000,
+      );
+    }
+    return out;
+  }
+  function checkpoint() {
+    const d = cnDate();
+    if (d < "2026-10-02")
+      return { key: "2026-10-02-prep", label: "10/2 出发前准备" };
+    const di = DAYS.findIndex((x) => x.date === d);
+    if (di < 0) return null;
+    const hm = cnHM(),
+      day = DAYS[di],
+      p = day.points.find((x) => x[0] >= hm) || day.points.at(-1);
+    return {
+      key: `${day.date}-${p[0]}-${p[1]}`,
+      label: `${p[1]}前 · 全员准备`,
+    };
+  }
+  function readyRows() {
+    const c = checkpoint();
+    return c
+      ? TEAM.map((p) =>
+          S.readiness.find((x) => x.checkpoint_key === c.key && x.person === p),
+        )
+      : [];
+  }
+  function ensureCard() {
+    if ($("#cwSocialCard")) return;
+    const next = $("#nextTripCard") || $(".now-card");
+    if (!next) return;
+    const card = document.createElement("section");
+    card.id = "cwSocialCard";
+    card.className = "card cw-social-card";
+    card.innerHTML =
+      '<div class="cw-social-head"><div><span class="eyebrow">四个人</span><h2>现在大家怎么样</h2></div><span id="cwSocialSummary" class="cw-social-summary">正在同步</span></div><div id="cwMemberRow" class="cw-member-row"></div><div class="cw-social-tools"><button type="button" class="ghost" id="cwMyStatus">设置我的状态</button><button type="button" class="ghost" id="cwRefreshSocial">刷新状态</button></div><div id="cwReadyBox" class="cw-ready-box"></div><div id="cwDriverBox" class="cw-driver-box"></div>';
+    next.insertAdjacentElement("afterend", card);
+  }
+  function memberHtml(p, driver) {
+    const x = profile(p),
+      st = statusFor(p),
+      isOnline = online(p),
+      isDriver = driver?.person === p,
+      u = x.avatar_url || "";
+    return `<button type="button" class="cw-member ${isOnline ? "online" : ""} ${isDriver ? "driver" : ""} ${st ? "status" : ""}" data-social-person="${p}"><span class="cw-member-face">${u ? `<img src="${esc(u)}" alt="${esc(pname(p))}">` : `<span class="fallback">${p[0]}</span>`}${isDriver ? '<i class="cw-member-wheel">🚗</i>' : ""}${st ? `<i class="cw-member-emoji">${esc(st.emoji || "●")}</i>` : ""}</span><b>${esc(pname(p))}</b><small class="cw-online-age ${isOnline ? "" : "stale"}">${st ? esc(st.label || "") : isOnline ? age(x.last_seen) : age(x.last_seen)}</small></button>`;
+  }
+  function renderReady() {
+    const box = $("#cwReadyBox"),
+      c = checkpoint();
+    if (!box) return;
+    if (!c) {
+      box.innerHTML = "";
+      box.style.display = "none";
+      return;
+    }
+    box.style.display = "block";
+    const rows = readyRows(),
+      count = rows.filter(Boolean).filter((x) => x.ready).length,
+      my = rows[TEAM.indexOf(ME)]?.ready;
+    box.innerHTML = `<div class="cw-ready-head"><div><span class="eyebrow">准备好了没</span><h3>${esc(c.label)}</h3></div><b>${count}/4</b></div><div class="cw-ready-people">${TEAM.map((p, i) => `<div class="cw-ready-person ${rows[i]?.ready ? "ready" : ""}"><span>${rows[i]?.ready ? "✓" : "○"}</span><b>${esc(pname(p))}</b><small>${rows[i]?.ready ? "已准备" : "还没点"}</small></div>`).join("")}</div><div class="cw-ready-actions"><button type="button" class="${my ? "ghost" : "primary"}" id="cwReadyToggle">${my ? "取消准备" : "我好了"}</button></div>`;
+  }
+  function renderDriver() {
+    const box = $("#cwDriverBox");
+    if (!box) return;
+    const d = currentDriver(),
+      tot = driverTotals();
+    const u = d ? pimg(d.person) : "";
+    box.innerHTML = `<div class="cw-driver-head"><div><span class="eyebrow">谁在开车</span><h3>${d ? `${esc(pname(d.person))}正在驾驶` : "当前未记录驾驶员"}</h3></div>${d?.person === ME ? "<span>是我</span>" : ""}</div><div class="cw-driver-main">${d ? (u ? `<img class="cw-driver-avatar" src="${esc(u)}" alt="">` : `<span class="cw-driver-avatar" style="display:grid;place-items:center">${d.person[0]}</span>`) : '<span class="cw-driver-avatar" style="display:grid;place-items:center">🚗</span>'}<div><b>${d ? `本次已开 ${durationText((Date.now() - new Date(d.started_at).getTime()) / 1000)}` : "换司机时点一下即可"}</b><span>每个人当天驾驶时长会自动累计</span></div><button type="button" class="${d?.person === ME ? "ghost" : "primary"}" id="cwTakeWheel">${d?.person === ME ? "结束驾驶" : "我来开"}</button></div><div class="cw-driver-times">${TEAM.map((p) => `<span>${esc(pname(p))} ${tot[p] ? durationText(tot[p]) : "0分"}</span>`).join("")}</div>`;
+  }
+  function renderSocial() {
+    ensureCard();
+    const d = currentDriver(),
+      on = TEAM.filter(online).length,
+      c = checkpoint(),
+      ready = c
+        ? readyRows()
+            .filter(Boolean)
+            .filter((x) => x.ready).length
+        : 0;
+    $("#cwMemberRow").innerHTML = TEAM.map((p) => memberHtml(p, d)).join("");
+    const parts = [`${on}人在线`];
+    if (d) parts.push(`${pname(d.person)}在开车`);
+    if (c) parts.push(`${ready}/4已准备`);
+    $("#cwSocialSummary").textContent = parts.join(" · ");
+    renderReady();
+    renderDriver();
+    showIncoming();
+    injectReactions();
+    maybeCelebrate();
+    renderInspiration();
+  }
+  function ensureSheet() {
+    if ($("#cwSocialSheet")) return;
+    const e = document.createElement("div");
+    e.id = "cwSocialSheet";
+    e.className = "cw-sheet";
+    e.innerHTML = '<div class="cw-sheet-card" id="cwSocialSheetBody"></div>';
+    document.body.appendChild(e);
+    e.addEventListener("click", (ev) => {
+      if (ev.target === e) e.classList.remove("show");
+    });
+  }
+  function openSheet(html) {
+    ensureSheet();
+    $("#cwSocialSheetBody").innerHTML =
+      '<button class="cw-sheet-close" type="button" data-sheet-close aria-label="关闭操作面板">×</button>' +
+      html;
+    $("#cwSocialSheet").classList.add("show");
+  }
+  function closeSheet() {
+    $("#cwSocialSheet")?.classList.remove("show");
+  }
+  function statusSheet() {
+    const opts = [
+      ["😴", "困了"],
+      ["🚗", "我在开车"],
+      ["📸", "想拍照"],
+      ["🍜", "饿了"],
+      ["🚻", "想停车"],
+      ["☕", "想喝咖啡"],
+    ];
+    openSheet(
+      `<h3>我的临时状态</h3><p>其他三个人会在头像上看到，2小时后自动消失。</p><div class="cw-sheet-grid">${opts.map((x) => `<button data-set-status="${x[0]}" data-status-label="${x[1]}">${x[0]} ${x[1]}</button>`).join("")}<button class="wide" data-clear-status>清除状态</button></div>`,
+    );
+  }
+  function nudgeSheet(p) {
+    const opts = [
+      ["催一下", "催一下"],
+      ["到哪了", "到哪了？"],
+      ["看账本", "看一下账本"],
+      ["该出发了", "该出发了"],
+    ];
+    openSheet(
+      `<h3>戳一下 ${esc(pname(p))}</h3><p>只发一个轻提醒，不做聊天。</p><div class="cw-sheet-grid">${opts.map((x) => `<button data-nudge-to="${p}" data-nudge-kind="${x[0]}" data-nudge-msg="${x[1]}">${x[1]}</button>`).join("")}</div>`,
+    );
+  }
+  function ensureNudge() {
+    if ($("#cwNudgeBanner")) return;
+    const b = document.createElement("div");
+    b.id = "cwNudgeBanner";
+    b.className = "cw-nudge-banner";
+    b.innerHTML =
+      '<div><b id="cwNudgeTitle"></b><span id="cwNudgeText"></span></div><button type="button" id="cwNudgeSeen">知道了</button>';
+    document.body.appendChild(b);
+  }
+  function showIncoming() {
+    ensureNudge();
+    const unseen = S.nudges.filter((x) => !x.seen_at);
+    if (!unseen.length) {
+      $("#cwNudgeBanner").classList.remove("show");
+      return;
+    }
+    const n = unseen[0];
+    $("#cwNudgeTitle").textContent =
+      `${pname(n.from_person)} 戳了你一下${unseen.length > 1 ? ` · 还有${unseen.length - 1}条` : ""}`;
+    $("#cwNudgeText").textContent = n.message || n.kind;
+    $("#cwNudgeBanner").classList.add("show");
+  }
+  function expenseIdFromItem(el) {
+    return (
+      el.querySelector('[data-ledger="edit-exp"]')?.dataset.id ||
+      el.querySelector('[data-ledger="ack"]')?.dataset.id ||
+      el.querySelector('[data-ledger="del-exp"]')?.dataset.id ||
+      ""
+    );
+  }
+  function reactionSummary(id) {
+    const rs = S.expense_reactions.filter(
+      (x) => String(x.expense_id) === String(id),
+    );
+    return rs.length
+      ? rs.map((x) => `${pname(x.person)} ${x.reaction}`).join(" · ")
+      : "还没人反馈";
+  }
+  function injectReactions() {
+    const list = $("#ledgerList");
+    if (!list) return;
+    for (const item of list.querySelectorAll(".ledger-item")) {
+      const id = expenseIdFromItem(item);
+      if (!id) continue;
+      let box = item.querySelector(".cw-reactions");
+      if (!box) {
+        box = document.createElement("div");
+        box.className = "cw-reactions";
+        item.appendChild(box);
+      }
+      const mine = S.expense_reactions.find(
+        (x) => String(x.expense_id) === String(id) && x.person === ME,
+      )?.reaction;
+      box.innerHTML = `<div class="cw-reaction-btns">${["👌", "👍", "💸"].map((r) => `<button type="button" class="${mine === r ? "on" : ""}" data-exp-react="${r}" data-expense-id="${id}">${r} ${r === "👌" ? "知道了" : r === "👍" ? "收到" : "已记住"}</button>`).join("")}</div><div class="cw-reaction-people">${esc(reactionSummary(id))}</div>`;
+    }
+  }
+  function maybeCelebrate() {
+    const recent = S.progress
+      .filter((x) => x.arrived_at)
+      .sort((a, b) => new Date(b.arrived_at) - new Date(a.arrived_at))[0];
+    if (!recent) return;
+    const key = `cw-arrival-seen-${ME}-${recent.day_date}-${recent.stop_index}-${recent.arrived_at}`;
+    if (localStorage.getItem(key)) return;
+    if (Date.now() - new Date(recent.arrived_at).getTime() > 30 * 60 * 1000)
+      return;
+    localStorage.setItem(key, "1");
+    let ov = $("#cwArrival");
+    if (!ov) {
+      ov = document.createElement("div");
+      ov.id = "cwArrival";
+      ov.className = "cw-arrival";
+      document.body.appendChild(ov);
+    }
+    ov.innerHTML = `<div class="cw-arrival-card"><div class="cw-arrival-faces">${TEAM.map((p) => (pimg(p) ? `<img src="${esc(pimg(p))}" alt="${esc(pname(p))}">` : `<span>${p[0]}</span>`)).join("")}</div><h2>你们到达 ${esc(recent.stop_name)} 啦</h2><p>${new Date(recent.arrived_at).toLocaleTimeString("zh-CN", { hour: "2-digit", minute: "2-digit", hour12: false })} · 今日节点已记录</p><button type="button" class="primary" id="cwArrivalOk">我们到了</button></div>`;
+    ov.classList.add("show");
+  }
+  function selectedDayIndex() {
+    const n = Number($("#simpleItinerary [data-day].on")?.dataset.day);
+    return Number.isFinite(n) ? n : 0;
+  }
+  function ensureInspiration() {
+    const host = $("#simpleItinerary .itinerary-card");
+    if (!host || $("#cwInspiration")) return;
+    const sec = document.createElement("section");
+    sec.id = "cwInspiration";
+    sec.className = "cw-inspiration";
+    host.appendChild(sec);
+  }
+  function voteMap(id) {
+    const arr = S.votes.filter((x) => x.inspiration_id === id),
+      likes = arr.filter((x) => x.vote === 1).map((x) => x.person),
+      no = arr.filter((x) => x.vote === -1).map((x) => x.person);
+    return { likes, no, mine: arr.find((x) => x.person === ME)?.vote || 0 };
+  }
+  function voteFaces(arr) {
+    return arr.length
+      ? arr.map((p) => `<i title="${esc(pname(p))}">${p[0]}</i>`).join("")
+      : "<span>暂无</span>";
+  }
+  function itemHtml(x, behind = false) {
+    const v = voteMap(x.id),
+      suggest =
+        v.likes.length >= 3
+          ? "🔥 大家都喜欢，建议列为必拍"
+          : v.likes.length >= 2 && v.no.length === 0
+            ? "✓ 多数人喜欢，值得留时间"
+            : v.no.length >= 2
+              ? "可以跳过，优先拍别的"
+              : "左右滑动一起决定";
+    return `<article class="cw-insp-card ${behind ? "behind" : ""}" data-insp-id="${x.id}"><div class="cw-swipe-stamp nope">不拍</div><div class="cw-swipe-stamp like">想拍</div><div class="cw-insp-photo" style="${x.image_url ? `background-image:url('${String(x.image_url).replace(/'/g, "%27")}')` : ""}"><div class="cw-insp-place"><b>${esc(x.place)}</b><span>${esc(x.source_type || "灵感库")}</span></div></div><div class="cw-insp-body"><h4>${esc(x.title)}</h4><p>${esc(x.pose_tip || "到现场按光线和安全条件调整。")}</p><div class="cw-insp-tags">${(x.tags || []).map((t) => `<span>${esc(t)}</span>`).join("")}</div><div class="cw-insp-votes"><span>👍 <span class="cw-insp-vote-avatars">${voteFaces(v.likes)}</span></span><span>👎 <span class="cw-insp-vote-avatars">${voteFaces(v.no)}</span></span></div><div class="cw-insp-suggest">${suggest}</div><div class="cw-insp-source">${x.source_url ? `<a href="${esc(x.source_url)}" target="_blank" rel="noopener">查看来源</a>` : ""}<button type="button" data-open-import="${esc(x.place)}">收一个新灵感</button></div></div></article>`;
+  }
+  function renderInspiration() {
+    if (voteBusy || swiping) return;
+    ensureInspiration();
+    const host = $("#cwInspiration");
+    if (!host) return;
+    currentDay = selectedDayIndex();
+    const day = DAYS[currentDay],
+      items = S.inspirations.filter(
+        (x) => !x.day_date || String(x.day_date).slice(0, 10) === day.date,
+      );
+    if (!items.length) {
+      host.innerHTML =
+        '<div class="cw-insp-empty">这一天还没有拍照灵感。可以把参考图和来源链接收进来。</div><button type="button" class="primary" data-open-import="">添加拍照灵感</button>';
+      return;
+    }
+    const unv = items.filter((x) => !voteMap(x.id).mine),
+      ordered = [...unv, ...items.filter((x) => voteMap(x.id).mine)];
+    if (deckIndex >= ordered.length) deckIndex = 0;
+    const cur = ordered[deckIndex],
+      next = ordered[(deckIndex + 1) % ordered.length],
+      place = cur?.place || day.places[0];
+    host.innerHTML = `<div class="cw-insp-head"><div><span class="eyebrow">拍照灵感</span><h3>${esc(place)} · 一起挑姿势</h3><div class="cw-insp-sub">左滑不喜欢 · 右滑喜欢 · 结果四人同步</div></div><a class="cw-insp-search" href="https://www.xiaohongshu.com/search_result?keyword=${encodeURIComponent(place + " 拍照 姿势")}" target="_blank" rel="noopener">去小红书找灵感</a></div><div class="cw-insp-deck">${ordered.length > 1 ? itemHtml(next, true) : ""}${itemHtml(cur, false)}</div><div class="cw-insp-controls"><button type="button" class="no" aria-label="不喜欢这张灵感" data-swipe-vote="-1">👎</button><button type="button" class="yes" aria-label="喜欢这张灵感" data-swipe-vote="1">👍</button></div><div class="cw-insp-note">系统图库使用可公开复用的来源或你们自己上传的截图/参考图；外部内容保留来源链接，不把第三方完整笔记复制进来。</div>`;
+    bindSwipe();
+  }
+  function bindSwipe() {
+    const card = $("#cwInspiration .cw-insp-card:not(.behind)");
+    if (!card) return;
+    let start = null,
+      dx = 0,
+      axis = "";
+    const reset = () => {
+      start = null;
+      dx = 0;
+      axis = "";
+      swiping = false;
+      card.style.transform = "";
+      card.style.opacity = "";
+      card
+        .querySelectorAll(".cw-swipe-stamp")
+        .forEach((x) => (x.style.opacity = "0"));
+    };
+    card.addEventListener("pointerdown", (e) => {
+      if (voteBusy || e.button > 0 || e.target.closest("button,a,input"))
+        return;
+      start = { x: e.clientX, y: e.clientY, id: e.pointerId };
+      dx = 0;
+      axis = "";
+      swiping = true;
+    });
+    card.addEventListener("pointermove", (e) => {
+      if (!start || start.id !== e.pointerId) return;
+      dx = e.clientX - start.x;
+      const dy = e.clientY - start.y;
+      if (!axis && Math.max(Math.abs(dx), Math.abs(dy)) > 10) {
+        axis = Math.abs(dx) > Math.abs(dy) * 1.2 ? "x" : "y";
+        if (axis === "x") card.setPointerCapture?.(e.pointerId);
+      }
+      if (axis !== "x") return;
+      card.style.transform = `translateX(${dx}px) rotate(${dx / 24}deg)`;
+      card.querySelector(".like").style.opacity =
+        dx > 0 ? Math.min(1, dx / 90) : 0;
+      card.querySelector(".nope").style.opacity =
+        dx < 0 ? Math.min(1, -dx / 90) : 0;
+    });
+    card.addEventListener("pointerup", (e) => {
+      if (!start || start.id !== e.pointerId) return;
+      const vote = axis === "x" && Math.abs(dx) > 80 ? (dx > 0 ? 1 : -1) : 0;
+      reset();
+      if (vote) commitVote(card.dataset.inspId, vote, card);
+    });
+    card.addEventListener("pointercancel", reset);
+    card.addEventListener("lostpointercapture", reset);
+  }
+  async function commitVote(id, vote, card) {
+    if (voteBusy || !id) return;
+    voteBusy = true;
+    const buttons = [...document.querySelectorAll("[data-swipe-vote]")];
+    buttons.forEach((b) => {
+      b.disabled = true;
+      b.setAttribute("aria-busy", "true");
+    });
+    try {
+      await api("vote_inspiration", { inspiration_id: id, vote });
+      const old = S.votes.find(
+        (x) => x.inspiration_id === id && x.person === ME,
+      );
+      if (old) old.vote = vote;
+      else S.votes.push({ inspiration_id: id, person: ME, vote });
+      const day = DAYS[selectedDayIndex()];
+      const remaining = S.inspirations.filter(
+        (x) =>
+          (!x.day_date || String(x.day_date).slice(0, 10) === day.date) &&
+          !voteMap(x.id).mine,
+      );
+      deckIndex = remaining.length ? 0 : deckIndex + 1;
+      if (card) {
+        card.style.transform = `translateX(${vote > 0 ? 420 : -420}px) rotate(${vote > 0 ? 15 : -15}deg)`;
+        card.style.opacity = "0";
+      }
+      await new Promise((resolve) =>
+        setTimeout(
+          resolve,
+          matchMedia("(prefers-reduced-motion: reduce)").matches ? 0 : 180,
+        ),
+      );
+    } catch (e) {
+      toast("投票未同步，请重试");
+      if (card) {
+        card.style.transform = "";
+        card.style.opacity = "";
+      }
+    } finally {
+      voteBusy = false;
+      buttons.forEach((b) => {
+        b.disabled = false;
+        b.removeAttribute("aria-busy");
+      });
+      renderInspiration();
+    }
+  }
+
+  function fileToData(file) {
+    return new Promise((res, rej) => {
+      const img = new Image(),
+        u = URL.createObjectURL(file);
+      img.onload = () => {
+        const s = Math.min(1, 1200 / Math.max(img.width, img.height)),
+          c = document.createElement("canvas");
+        c.width = Math.max(1, Math.round(img.width * s));
+        c.height = Math.max(1, Math.round(img.height * s));
+        c.getContext("2d").drawImage(img, 0, 0, c.width, c.height);
+        URL.revokeObjectURL(u);
+        res(c.toDataURL("image/jpeg", 0.78));
+      };
+      img.onerror = () => {
+        URL.revokeObjectURL(u);
+        rej(new Error("图片读取失败，请使用JPG或PNG"));
+      };
+      img.src = u;
+    });
+  }
+  function importSheet(place = "") {
+    const day = DAYS[selectedDayIndex()];
+    openSheet(
+      `<h3>收进我们的灵感库</h3><p>可以粘贴小红书原笔记链接，并上传你们自己的截图/参考图；来源链接会一直保留。</p><div class="cw-import-form"><label>地点<select id="cwImpPlace">${day.places.map((p) => `<option ${p === place ? "selected" : ""}>${esc(p)}</option>`).join("")}</select></label><label>标题<input id="cwImpTitle" placeholder="例如：男生靠车侧身"></label><label>拍摄建议<textarea id="cwImpTip" placeholder="站位、焦段、构图、动作"></textarea></label><label>小红书/原始来源链接<input id="cwImpUrl" inputmode="url" placeholder="https://..."></label><label>截图或参考图（可选）<input id="cwImpFile" type="file" accept="image/*"></label><div class="cw-import-actions"><button type="button" class="ghost" data-sheet-close>取消</button><button type="button" class="primary" id="cwImpSave">保存灵感</button></div></div>`,
+    );
+  }
+  async function saveImport() {
+    const title = $("#cwImpTitle")?.value.trim(),
+      place = $("#cwImpPlace")?.value || "",
+      tip = $("#cwImpTip")?.value.trim() || "",
+      source_url = $("#cwImpUrl")?.value.trim() || "",
+      file = $("#cwImpFile")?.files?.[0];
+    if (!title) return toast("先写一个灵感标题");
+    const save = $("#cwImpSave");
+    if (save.disabled) return;
+    if (source_url) {
+      try {
+        const u = new URL(source_url);
+        if (!["https:", "http:"].includes(u.protocol)) throw 0;
+      } catch {
+        return toast("请填写完整的 http 或 https 来源链接");
+      }
+    }
+    if (
+      file &&
+      (!file.type.startsWith("image/") || file.size > 20 * 1024 * 1024)
+    )
+      return toast("请选择20 MB以内的图片");
+    let data_url = "";
+    save.disabled = true;
+    try {
+      if (file) data_url = await fileToData(file);
+      await api(
+        "add_inspiration",
+        {
+          day_date: DAYS[selectedDayIndex()].date,
+          place,
+          title,
+          pose_tip: tip,
+          source_url,
+          data_url,
+          tags: ["四人收藏"],
+        },
+        15000,
+      );
+      closeSheet();
+      toast("已加入四人灵感库");
+      await refresh(true);
+    } catch (e) {
+      toast(e.message);
+    } finally {
+      if ($("#cwImpSave")) $("#cwImpSave").disabled = false;
+    }
+  }
+  async function refresh(render = true) {
+    if (refreshing) return refreshing;
+    refreshing = (async () => {
+      try {
+        const j = await api("state");
+        if (voteBusy) return;
+        S = { ...S, ...j };
+        lastGood = Date.now();
+        try {
+          localStorage.setItem(
+            `cw-social-cache-${ME}`,
+            JSON.stringify({ saved: lastGood, data: S }),
+          );
+        } catch {}
+        if (render) renderSocial();
+      } catch (e) {
+        if (!lastGood) {
+          try {
+            const c = JSON.parse(
+              localStorage.getItem(`cw-social-cache-${ME}`) || "null",
+            );
+            if (c?.data) S = { ...S, ...c.data };
+          } catch {}
+        }
+        if (render) {
+          renderSocial();
+          const summary = $("#cwSocialSummary");
+          if (summary)
+            summary.textContent = lastGood
+              ? "同步中断 · 显示上次状态"
+              : "状态暂未同步 · 点击刷新重试";
+        }
+      } finally {
+        refreshing = null;
+      }
+    })();
+    return refreshing;
+  }
+
+  function bind() {
+    document.addEventListener(
+      "click",
+      (e) => {
+        const day = e.target.closest("#simpleItinerary [data-day]");
+        if (!day) return;
+        const i = Number(day.dataset.day);
+        deckIndex = 0;
+        setTimeout(() => {
+          if (selectedDayIndex() === i) renderInspiration();
+        }, 100);
+      },
+      true,
+    );
+    document.addEventListener("click", async (e) => {
+      const m = e.target.closest("[data-social-person]");
+      if (m) {
+        m.dataset.socialPerson === ME
+          ? statusSheet()
+          : nudgeSheet(m.dataset.socialPerson);
+        return;
+      }
+      if (e.target.closest("#cwMyStatus")) return statusSheet();
+      if (e.target.closest("#cwRefreshSocial")) return refresh(true);
+      const st = e.target.closest("[data-set-status]");
+      if (st) {
+        try {
+          await api("set_status", {
+            emoji: st.dataset.setStatus,
+            label: st.dataset.statusLabel,
+            ttl_minutes: 120,
+          });
+          closeSheet();
+          await refresh(true);
+          toast("状态已同步给大家");
+        } catch (x) {
+          toast(x.message);
+        }
+        return;
+      }
+      if (e.target.closest("[data-clear-status]")) {
+        try {
+          await api("clear_status");
+          closeSheet();
+          await refresh(true);
+        } catch (x) {
+          toast(x.message);
+        }
+        return;
+      }
+      const n = e.target.closest("[data-nudge-to]");
+      if (n) {
+        try {
+          await api("nudge", {
+            to_person: n.dataset.nudgeTo,
+            kind: n.dataset.nudgeKind,
+            message: n.dataset.nudgeMsg,
+          });
+          closeSheet();
+          toast(`已戳 ${pname(n.dataset.nudgeTo)} 一下`);
+        } catch (x) {
+          toast(x.message);
+        }
+        return;
+      }
+      if (e.target.closest("#cwNudgeSeen")) {
+        try {
+          await api("mark_nudges_seen");
+          S.nudges.forEach(
+            (x) => (x.seen_at = x.seen_at || new Date().toISOString()),
+          );
+          showIncoming();
+        } catch {}
+        return;
+      }
+      if (e.target.closest("#cwReadyToggle")) {
+        const c = checkpoint(),
+          mine = S.readiness.find(
+            (x) => x.checkpoint_key === c?.key && x.person === ME,
+          )?.ready;
+        try {
+          await api("set_ready", {
+            checkpoint_key: c.key,
+            checkpoint_label: c.label,
+            ready: !mine,
+          });
+          await refresh(true);
+        } catch (x) {
+          toast(x.message);
+        }
+        return;
+      }
+      if (e.target.closest("#cwTakeWheel")) {
+        const d = currentDriver();
+        if (d?.person === ME) {
+          if (!confirm("确认结束本次驾驶记录？")) return;
+          try {
+            await api("stop_driving");
+            await api("clear_status").catch(() => {});
+            await refresh(true);
+          } catch (x) {
+            toast(x.message);
+          }
+        } else {
+          const msg = d
+            ? `当前是 ${pname(d.person)} 在开车。确认切换为你驾驶吗？`
+            : "确认开始记录你为当前驾驶员？";
+          if (!confirm(msg)) return;
+          try {
+            await api("take_wheel");
+            await api("set_status", {
+              emoji: "🚗",
+              label: "我在开车",
+              ttl_minutes: 240,
+            }).catch(() => {});
+            await refresh(true);
+          } catch (x) {
+            toast(x.message);
+          }
+        }
+        return;
+      }
+      const r = e.target.closest("[data-exp-react]");
+      if (r) {
+        try {
+          await api("react_expense", {
+            expense_id: r.dataset.expenseId,
+            reaction: r.dataset.expReact,
+          });
+          const old = S.expense_reactions.find(
+            (x) =>
+              String(x.expense_id) === String(r.dataset.expenseId) &&
+              x.person === ME,
+          );
+          if (old) old.reaction = r.dataset.expReact;
+          else
+            S.expense_reactions.push({
+              expense_id: r.dataset.expenseId,
+              person: ME,
+              reaction: r.dataset.expReact,
+            });
+          injectReactions();
+        } catch (x) {
+          toast(x.message);
+        }
+        return;
+      }
+      if (e.target.closest("#cwArrivalOk")) {
+        $("#cwArrival")?.classList.remove("show");
+        return;
+      }
+      const sv = e.target.closest("[data-swipe-vote]");
+      if (sv) {
+        const card = $("#cwInspiration .cw-insp-card:not(.behind)");
+        if (card)
+          commitVote(card.dataset.inspId, Number(sv.dataset.swipeVote), card);
+        return;
+      }
+      const oi = e.target.closest("[data-open-import]");
+      if (oi) {
+        importSheet(oi.dataset.openImport || "");
+        return;
+      }
+      if (e.target.closest("[data-sheet-close]")) {
+        closeSheet();
+        return;
+      }
+      if (e.target.closest("#cwImpSave")) {
+        saveImport();
+        return;
+      }
+      const day = e.target.closest("#simpleItinerary [data-day]");
+      if (day) {
+        deckIndex = 0;
+        setTimeout(renderInspiration, 80);
+      }
+    });
+    const ledger = $("#ledgerList");
+    if (ledger)
+      new MutationObserver(() => injectReactions()).observe(ledger, {
+        childList: true,
+      });
+  }
+  window.addEventListener("cw:profiles", (e) => {
+    for (const p of e.detail?.profiles || []) {
+      const i = S.profiles.findIndex((x) => x.person === p.person);
+      if (i >= 0) S.profiles[i] = { ...S.profiles[i], ...p };
+      else S.profiles.push(p);
+    }
+    if ($("#cwSocialCard")) renderSocial();
+  });
+  function init() {
+    ensureCard();
+    ensureSheet();
+    ensureNudge();
+    bind();
+    try {
+      const c = JSON.parse(
+        localStorage.getItem(`cw-social-cache-${ME}`) || "null",
+      );
+      if (c?.data) {
+        S = { ...S, ...c.data };
+        renderSocial();
+      }
+    } catch {}
+    refresh(true);
+    poll = setInterval(() => {
+      if (!document.hidden) refresh(true);
+    }, 15000);
+    document.addEventListener("visibilitychange", () => {
+      if (!document.hidden) refresh(true);
+    });
+    setInterval(() => {
+      if (!document.hidden && $("#cwSocialCard")) {
+        renderDriver();
+        const d = currentDriver();
+        if (d)
+          $("#cwSocialSummary").textContent = [
+            `${TEAM.filter(online).length}人在线`,
+            `${pname(d.person)}在开车`,
+            checkpoint()
+              ? `${
+                  readyRows()
+                    .filter(Boolean)
+                    .filter((x) => x.ready).length
+                }/4已准备`
+              : null,
+          ]
+            .filter(Boolean)
+            .join(" · ");
+      }
+    }, 60000);
+    document.documentElement.classList.add("cw-social-ready");
+  }
+  const wait = () => {
+    if ($("#app") && !$("#app").hidden && $("#nextTripCard")) init();
+    else setTimeout(wait, 100);
+  };
+  wait();
 })();

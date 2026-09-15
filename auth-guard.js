@@ -1,17 +1,59 @@
-(()=>{
-'use strict';
-const TEAM=['瑞子','普子','航子','辉子'];
-const qs=new URLSearchParams(location.search),ME=qs.get('person')||localStorage.getItem('cw-person')||'';
-const AUTH='https://wpfqcztbxxarsrruuuce.supabase.co/functions/v1/trip-auth',TRIP='chuanxi2026';
-const reveal=()=>{document.documentElement.style.visibility='';document.documentElement.classList.add('cw-auth-ready');window.__CW_AUTH_OK=true;window.dispatchEvent(new Event('cw-auth-ready'))};
-const clear=()=>{sessionStorage.removeItem(`cw-auth-${ME}`);sessionStorage.removeItem(`cw-auth-exp-${ME}`)};
-if(qs.get('qa')==='1'){sessionStorage.setItem('cw-admin',ME==='瑞子'?'1':'0');reveal();return}
-if(!TEAM.includes(ME)){location.replace('./');return}
-const token=sessionStorage.getItem(`cw-auth-${ME}`)||'',exp=sessionStorage.getItem(`cw-auth-exp-${ME}`)||'';
-if(!token){location.replace(`./?person=${encodeURIComponent(ME)}`);return}
-const expMs=exp?new Date(exp).getTime():0;
-if(expMs&&expMs<=Date.now()){clear();location.replace(`./?person=${encodeURIComponent(ME)}`);return}
-localStorage.setItem('cw-person',ME);
-const c=new AbortController(),t=setTimeout(()=>c.abort(),7000);
-fetch(AUTH,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({trip_slug:TRIP,action:'validate',payload:{person:ME,token}}),signal:c.signal}).then(async r=>{clearTimeout(t);if(!r.ok){clear();location.replace(`./?person=${encodeURIComponent(ME)}`);return}const j=await r.json().catch(()=>({}));if(!j.valid){clear();location.replace(`./?person=${encodeURIComponent(ME)}`);return}if(j.expires_at)sessionStorage.setItem(`cw-auth-exp-${ME}`,j.expires_at);if(!sessionStorage.getItem('cw-admin'))sessionStorage.setItem('cw-admin',ME==='瑞子'?'1':'0');reveal()}).catch(()=>{clearTimeout(t);clear();location.replace(`./?person=${encodeURIComponent(ME)}&auth_error=1`)})
+(() => {
+  "use strict";
+  const auth = window.CWSession;
+  const person =
+    new URLSearchParams(location.search).get("person") ||
+    localStorage.getItem("cw-person") ||
+    "";
+  const login = () =>
+    location.replace(`./?person=${encodeURIComponent(person)}`);
+  const reveal = () => {
+    document.documentElement.classList.add("cw-auth-ready");
+    window.__CW_AUTH_OK = true;
+    window.dispatchEvent(new Event("cw-auth-ready"));
+  };
+  async function check() {
+    if (!auth || !auth.PEOPLE.includes(person)) {
+      location.replace("./");
+      return;
+    }
+    if (auth.qa) {
+      sessionStorage.setItem("cw-admin", person === "瑞子" ? "1" : "0");
+      reveal();
+      return;
+    }
+    if (!auth.get(person)) {
+      login();
+      return;
+    }
+    try {
+      const session = await auth.validate(person);
+      if (!session) {
+        login();
+        return;
+      }
+      sessionStorage.setItem(
+        "cw-admin",
+        person === "瑞子" || auth.get("瑞子") ? "1" : "0",
+      );
+      reveal();
+    } catch {
+      const showError = () => {
+        document.documentElement.classList.add("cw-auth-ready");
+        const boot = document.getElementById("boot");
+        boot.innerHTML =
+          '<div class="bootmark">川</div><b>暂时无法验证登录</b><span>登录记忆已保留，请连接网络后重试</span><button type="button" class="primary" id="authRetry">重新连接</button><a href="./?choose=1">返回身份选择</a>';
+        document.getElementById("authRetry").onclick = () => {
+          boot.querySelector("b").textContent = "正在重新连接…";
+          check();
+        };
+      };
+      if (document.readyState === "loading")
+        document.addEventListener("DOMContentLoaded", showError, {
+          once: true,
+        });
+      else showError();
+    }
+  }
+  check();
 })();

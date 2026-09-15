@@ -1,5 +1,97 @@
-const CACHE='chuanxi-2026-v38';
-const CORE=['./','./index.html','./app-v4.html','./app-v4.css','./app-v4.js','./auth-guard.js','./geo-throttle.js','./minimal-v1.css','./minimal-v1.js','./profile-sync-v2.css','./profile-sync-v2.js','./profile-upload-v3.js','./admin-switch-v1.js','./ledger-ack-v1.js','./itinerary-live-v1.css','./itinerary-live-v1.js','./daily-card-v1.css','./daily-card-v1.js','./travel-assist-v1.css','./travel-assist-v1.js','./travel-assist-dayfix-v1.js','./map-state-guard-v1.js','./social-v1.css','./social-v1.js','./social-qa-mock-v1.js','./map-v5.css','./map-v5.js','./qa-mock.js','./qa-probe.js','./avatars.js','./manifest.webmanifest','./icon.svg'];
-self.addEventListener('install',e=>e.waitUntil(caches.open(CACHE).then(c=>c.addAll(CORE)).then(()=>self.skipWaiting())));
-self.addEventListener('activate',e=>e.waitUntil(caches.keys().then(keys=>Promise.all(keys.filter(k=>k!==CACHE).map(k=>caches.delete(k)))).then(()=>self.clients.claim())));
-self.addEventListener('fetch',e=>{if(e.request.method!=='GET')return;const u=new URL(e.request.url);if(u.origin!==location.origin)return;const nav=e.request.mode==='navigate'||u.pathname.endsWith('/index.html')||u.pathname.endsWith('/app-v4.html');if(nav){e.respondWith(fetch(e.request).then(r=>{const c=r.clone();caches.open(CACHE).then(x=>x.put(e.request,c));return r}).catch(()=>caches.match(e.request).then(x=>x||caches.match('./index.html'))));return}if(u.pathname.endsWith('/road-routes.json')){e.respondWith(caches.match(e.request).then(hit=>hit||fetch(e.request).then(r=>{if(r.ok){const c=r.clone();caches.open(CACHE).then(x=>x.put(e.request,c))}return r})));return}e.respondWith(caches.match(e.request).then(hit=>hit||fetch(e.request).then(r=>{if(r.ok&&['script','style','image','manifest'].includes(e.request.destination)){const c=r.clone();caches.open(CACHE).then(x=>x.put(e.request,c))}return r})))});
+const CACHE = "chuanxi-2026-v39";
+const CORE = [
+  "./",
+  "./index.html",
+  "./login.js",
+  "./session-store.js",
+  "./app-bootstrap.js",
+  "./app-v4.html",
+  "./app-v4.css",
+  "./app-v4.js",
+  "./auth-guard.js",
+  "./geo-throttle.js",
+  "./minimal-v1.css",
+  "./minimal-v1.js",
+  "./profile-sync-v2.css",
+  "./profile-sync-v2.js",
+  "./admin-switch-v1.js",
+  "./ledger-ack-v1.js",
+  "./itinerary-live-v1.css",
+  "./itinerary-live-v1.js",
+  "./daily-card-v1.css",
+  "./daily-card-v1.js",
+  "./travel-assist-v1.css",
+  "./travel-assist-v1.js",
+  "./travel-assist-dayfix-v1.js",
+  "./map-state-guard-v1.js",
+  "./social-v1.css",
+  "./social-v1.js",
+  "./map-v5.css",
+  "./map-v5.js",
+  "./ux-v5.css",
+  "./decision-v1.css",
+  "./interaction-ux.css",
+  "./interaction-ux.js",
+  "./avatars.js",
+  "./manifest.webmanifest",
+  "./icon.svg",
+];
+self.addEventListener("install", (event) =>
+  event.waitUntil(
+    caches
+      .open(CACHE)
+      .then((cache) => cache.addAll(CORE))
+      .then(() => self.skipWaiting()),
+  ),
+);
+self.addEventListener("activate", (event) =>
+  event.waitUntil(
+    caches
+      .keys()
+      .then((keys) =>
+        Promise.all(
+          keys
+            .filter((key) => key.startsWith("chuanxi-2026-") && key !== CACHE)
+            .map((key) => caches.delete(key)),
+        ),
+      )
+      .then(() => self.clients.claim()),
+  ),
+);
+self.addEventListener("fetch", (event) => {
+  if (event.request.method !== "GET") return;
+  const url = new URL(event.request.url);
+  if (url.origin !== location.origin) return;
+  const navigation = event.request.mode === "navigate";
+  if (
+    !navigation &&
+    !["script", "style", "image", "manifest"].includes(
+      event.request.destination,
+    ) &&
+    !url.pathname.endsWith("/road-routes.json")
+  )
+    return;
+  event.respondWith(
+    (async () => {
+      const cache = await caches.open(CACHE);
+      const key = new Request(url.origin + url.pathname);
+      try {
+        const response = await fetch(event.request);
+        if (response.ok) await cache.put(key, response.clone());
+        return response;
+      } catch (error) {
+        const cached = await cache.match(key);
+        if (cached) return cached;
+        if (navigation) {
+          const fallback = await cache.match(
+            url.pathname.endsWith("/app-v4.html")
+              ? "./app-v4.html"
+              : "./index.html",
+          );
+          if (fallback) return fallback;
+        }
+        throw error;
+      }
+    })(),
+  );
+});

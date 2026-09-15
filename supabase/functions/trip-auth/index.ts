@@ -1,0 +1,334 @@
+import { createClient } from "npm:@supabase/supabase-js@2";
+const cors = {
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Headers":
+    "authorization, x-client-info, apikey, content-type",
+  "Access-Control-Allow-Methods": "POST, OPTIONS",
+  "Content-Type": "application/json; charset=utf-8",
+};
+const PEOPLE = ["瑞子", "普子", "航子", "辉子"];
+const TRIP = "chuanxi2026";
+const enc = new TextEncoder();
+const json = (body: any, status = 200) =>
+  new Response(JSON.stringify(body), { status, headers: cors });
+const clean = (v: any, max = 40) =>
+  String(v ?? "")
+    .trim()
+    .slice(0, max);
+const b64 = (bytes: Uint8Array) => {
+  let s = "";
+  for (const b of bytes) s += String.fromCharCode(b);
+  return btoa(s).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
+};
+const unb64 = (s: string) => {
+  s = s.replace(/-/g, "+").replace(/_/g, "/");
+  while (s.length % 4) s += "=";
+  const raw = atob(s),
+    out = new Uint8Array(raw.length);
+  for (let i = 0; i < raw.length; i++) out[i] = raw.charCodeAt(i);
+  return out;
+};
+async function pinHash(pin: string, salt?: Uint8Array) {
+  const s = salt || crypto.getRandomValues(new Uint8Array(16));
+  const key = await crypto.subtle.importKey(
+    "raw",
+    enc.encode(pin),
+    "PBKDF2",
+    false,
+    ["deriveBits"],
+  );
+  const bits = await crypto.subtle.deriveBits(
+    { name: "PBKDF2", salt: s, iterations: 150000, hash: "SHA-256" },
+    key,
+    256,
+  );
+  return `${b64(s)}:${b64(new Uint8Array(bits))}`;
+}
+async function verifyPin(pin: string, stored: string) {
+  const [salt, hash] = String(stored || "").split(":");
+  if (!salt || !hash) return false;
+  const calc = await pinHash(pin, unb64(salt));
+  const a = enc.encode(calc.split(":")[1]),
+    b = enc.encode(hash);
+  if (a.length !== b.length) return false;
+  let d = 0;
+  for (let i = 0; i < a.length; i++) d |= a[i] ^ b[i];
+  return d === 0;
+}
+async function tokenHash(token: string) {
+  const d = await crypto.subtle.digest("SHA-256", enc.encode(token));
+  return b64(new Uint8Array(d));
+}
+function newToken() {
+  return b64(crypto.getRandomValues(new Uint8Array(32)));
+}
+function lockSeconds(lock: any) {
+  if (!lock) return 0;
+  return Math.max(0, Math.ceil((new Date(lock).getTime() - Date.now()) / 1000));
+}
+async function issueSession(
+  db: any,
+  trip_slug: string,
+  person: string,
+  remember = false,
+) {
+  const token = newToken(),
+    hash = await tokenHash(token),
+    expires = new Date(
+      Date.now() + (remember ? 30 * 24 : 12) * 60 * 60 * 1000,
+    ).toISOString();
+  await db
+    .from("person_sessions")
+    .delete()
+    .lt("expires_at", new Date().toISOString());
+  const ins = await db
+    .from("person_sessions")
+    .insert({
+      token_hash: hash,
+      trip_slug,
+      person,
+      expires_at: expires,
+      last_used_at: new Date().toISOString(),
+    });
+  if (ins.error) throw ins.error;
+  return { token, expires_at: expires };
+}
+async function validSession(
+  db: any,
+  trip_slug: string,
+  person: string,
+  token: string,
+) {
+  if (!token || token.length < 20) return null;
+  const hash = await tokenHash(token);
+  const s = await db
+    .from("person_sessions")
+    .select("*")
+    .eq("token_hash", hash)
+    .eq("trip_slug", trip_slug)
+    .eq("person", person)
+    .maybeSingle();
+  if (s.error) throw s.error;
+  if (!s.data || new Date(s.data.expires_at).getTime() <= Date.now()) {
+    if (s.data)
+      await db.from("person_sessions").delete().eq("token_hash", hash);
+    return null;
+  }
+  await db
+    .from("person_sessions")
+    .update({ last_used_at: new Date().toISOString() })
+    .eq("token_hash", hash);
+  return s.data;
+}
+Deno.serve(async (req) => {
+  if (req.method === "OPTIONS") return new Response("ok", { headers: cors });
+  if (req.method !== "POST") return json({ error: "POST only" }, 405);
+  try {
+    const body = await req.json();
+    const action = clean(body.action, 30),
+      payload = body.payload || {},
+      trip_slug = clean(body.trip_slug || TRIP, 40);
+    const person = clean(payload.person, 20);
+    if (action === "admin_switch") {
+      const admin = clean(payload.admin_person, 20),
+        target = clean(payload.target_person, 20),
+        token = String(payload.token || "");
+      if (admin !== "瑞子" || !PEOPLE.includes(target))
+        return json({ error: "没有管理员切换权限" }, 403);
+      const db = createClient(
+        Deno.env.get("SUPABASE_URL")!,
+        Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
+        { auth: { persistSession: false } },
+      );
+      const ok = await validSession(db, trip_slug, admin, token);
+      if (!ok)
+        return json(
+          {
+            error: "管理员登录已失效，请重新验证瑞子密码",
+            code: "admin_session_invalid",
+          },
+          401,
+        );
+      const session = await issueSession(db, trip_slug, target);
+      return json({ ok: true, person: target, ...session });
+    }
+    if (!PEOPLE.includes(person)) return json({ error: "身份不正确" }, 400);
+    const db = createClient(
+      Deno.env.get("SUPABASE_URL")!,
+      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
+      { auth: { persistSession: false } },
+    );
+    const q = await db
+      .from("person_access")
+      .select("*")
+      .eq("trip_slug", trip_slug)
+      .eq("person", person)
+      .maybeSingle();
+    if (q.error) return json({ error: q.error.message }, 500);
+    const row = q.data || {
+      trip_slug,
+      person,
+      pin_hash: null,
+      failed_attempts: 0,
+      lock_until: null,
+    };
+    if (!q.data) {
+      const ins = await db.from("person_access").insert(row);
+      if (ins.error) return json({ error: ins.error.message }, 500);
+    }
+    if (action === "status") {
+      const secs = lockSeconds(row.lock_until),
+        fails = Number(row.failed_attempts || 0);
+      return json({
+        configured: !!row.pin_hash,
+        locked: secs > 0,
+        lock_seconds: secs,
+        failed_attempts: fails,
+        remaining_attempts: fails < 5 ? 5 - fails : 1,
+        next_lock_minutes: fails >= 5 ? 20 + (fails - 4) * 10 : 20,
+      });
+    }
+    if (action === "setup") {
+      if (row.pin_hash)
+        return json(
+          { error: "该身份已经设置密码", code: "already_configured" },
+          409,
+        );
+      const pin = String(payload.pin || ""),
+        confirm = String(payload.confirm_pin || "");
+      if (!/^\d{4}$/.test(pin))
+        return json({ error: "密码必须是4位数字" }, 400);
+      if (pin !== confirm) return json({ error: "两次输入的密码不一致" }, 400);
+      const hash = await pinHash(pin),
+        now = new Date().toISOString();
+      const up = await db
+        .from("person_access")
+        .update({
+          pin_hash: hash,
+          failed_attempts: 0,
+          lock_until: null,
+          updated_at: now,
+        })
+        .eq("trip_slug", trip_slug)
+        .eq("person", person);
+      if (up.error) return json({ error: up.error.message }, 500);
+      const session = await issueSession(
+        db,
+        trip_slug,
+        person,
+        payload.remember_device === true,
+      );
+      return json({ ok: true, ...session });
+    }
+    if (action === "verify") {
+      if (!row.pin_hash)
+        return json({ error: "请先设置4位密码", code: "not_configured" }, 409);
+      const secs = lockSeconds(row.lock_until);
+      if (secs > 0)
+        return json(
+          {
+            error: "尝试次数过多，请稍后再试",
+            code: "locked",
+            lock_seconds: secs,
+            failed_attempts: Number(row.failed_attempts || 0),
+          },
+          423,
+        );
+      const pin = String(payload.pin || "");
+      if (!/^\d{4}$/.test(pin))
+        return json({ error: "请输入4位数字密码" }, 400);
+      const ok = await verifyPin(pin, row.pin_hash);
+      if (ok) {
+        const now = new Date().toISOString();
+        await db
+          .from("person_access")
+          .update({ failed_attempts: 0, lock_until: null, updated_at: now })
+          .eq("trip_slug", trip_slug)
+          .eq("person", person);
+        const session = await issueSession(
+          db,
+          trip_slug,
+          person,
+          payload.remember_device === true,
+        );
+        return json({ ok: true, ...session });
+      }
+      const fails = Number(row.failed_attempts || 0) + 1;
+      let until = null,
+        mins = 0;
+      if (fails >= 5) {
+        mins = 20 + (fails - 5) * 10;
+        until = new Date(Date.now() + mins * 60000).toISOString();
+      }
+      const up = await db
+        .from("person_access")
+        .update({
+          failed_attempts: fails,
+          lock_until: until,
+          updated_at: new Date().toISOString(),
+        })
+        .eq("trip_slug", trip_slug)
+        .eq("person", person);
+      if (up.error) return json({ error: up.error.message }, 500);
+      if (fails >= 5)
+        return json(
+          {
+            error: `密码错误，已锁定${mins}分钟`,
+            code: "locked",
+            lock_seconds: mins * 60,
+            failed_attempts: fails,
+            remaining_attempts: 0,
+          },
+          423,
+        );
+      return json(
+        {
+          error: "密码错误",
+          code: "wrong_pin",
+          failed_attempts: fails,
+          remaining_attempts: 5 - fails,
+        },
+        401,
+      );
+    }
+    if (action === "remember_device") {
+      const token = String(payload.token || "");
+      const s = await validSession(db, trip_slug, person, token);
+      if (!s)
+        return json({ error: "登录已失效", code: "session_invalid" }, 401);
+      const expires_at = new Date(
+        Date.now() + 30 * 24 * 60 * 60 * 1000,
+      ).toISOString();
+      const up = await db
+        .from("person_sessions")
+        .update({ expires_at })
+        .eq("token_hash", await tokenHash(token))
+        .eq("trip_slug", trip_slug)
+        .eq("person", person);
+      if (up.error) throw up.error;
+      return json({ ok: true, token, expires_at });
+    }
+    if (action === "validate") {
+      const token = String(payload.token || "");
+      const s = await validSession(db, trip_slug, person, token);
+      if (!s) return json({ valid: false }, 401);
+      return json({ valid: true, expires_at: s.expires_at });
+    }
+    if (action === "logout") {
+      const token = String(payload.token || "");
+      if (token) {
+        const hash = await tokenHash(token);
+        await db
+          .from("person_sessions")
+          .delete()
+          .eq("token_hash", hash)
+          .eq("trip_slug", trip_slug)
+          .eq("person", person);
+      }
+      return json({ ok: true });
+    }
+    return json({ error: "unknown action" }, 400);
+  } catch (e) {
+    return json({ error: String((e as any)?.message || e) }, 500);
+  }
+});

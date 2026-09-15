@@ -1,33 +1,382 @@
-(()=>{
-'use strict';
-const TEAM=['瑞子','普子','航子','辉子'];
-const DEFAULT_ROLE={瑞子:'酒店 / 账本',普子:'攻略 / 路况',航子:'机票 / 航班',辉子:'租车 / 车务'};
-const TRIP='chuanxi2026';
-const ENDPOINT='https://wpfqcztbxxarsrruuuce.supabase.co/functions/v1/trip-profile';
-const ME=new URLSearchParams(location.search).get('person')||localStorage.getItem('cw-person')||'瑞子';
-const ADMIN=sessionStorage.getItem('cw-admin')==='1';
-const $=s=>document.querySelector(s),$$=s=>[...document.querySelectorAll(s)];
-let profiles=[],busy=false,cropState=null;
-const channel='BroadcastChannel' in window?new BroadcastChannel('cw-profile-sync'):null;
-function esc(s){return String(s??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]))}
-function toast(msg){const el=$('#toast');if(el){el.textContent=msg;el.classList.add('show');clearTimeout(el._pt);el._pt=setTimeout(()=>el.classList.remove('show'),2400)}else console.log(msg)}
-function api(action,payload={}){const c=new AbortController(),t=setTimeout(()=>c.abort(),10000);return fetch(ENDPOINT,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({trip_slug:TRIP,action,payload}),signal:c.signal}).then(async r=>{clearTimeout(t);const j=await r.json().catch(()=>({}));if(!r.ok)throw new Error(j.error||'同步失败');return j}).catch(e=>{clearTimeout(t);throw e})}
-function profile(p){return profiles.find(x=>x.person===p)||{person:p,nickname:p,role:DEFAULT_ROLE[p]||'',avatar_url:null}}
-function mergeProfile(x){if(!x?.person)return;const i=profiles.findIndex(p=>p.person===x.person);if(i>=0)profiles[i]={...profiles[i],...x};else profiles.push(x)}
-function cssUrl(bg){const m=String(bg||'').match(/url\(["']?(.*?)["']?\)/);return m?m[1]:''}
-function fallbackUrl(p){const direct=window.CHUANXI_AVATARS?.[p[0]]||window.CW_AVATARS?.[p[0]]||'';if(direct)return direct;const seed=$(`#avatarSeeds .avatar[data-person="${p}"]`);if(!seed)return'';return cssUrl(getComputedStyle(seed).backgroundImage||seed.style.backgroundImage)}
-function avatarUrl(p){return profile(p).avatar_url||fallbackUrl(p)||''}
-function paintAvatar(el,p){if(!el)return;const u=avatarUrl(p);el.dataset.person=p;el.textContent=u?'':p[0];if(u){el.style.backgroundImage=`url("${u.replace(/"/g,'%22')}")`;el.style.backgroundSize='cover';el.style.backgroundPosition='center';el.style.color='transparent'}else{el.style.backgroundImage='';el.style.color=''}}
-function renderIdentityGrid(){const el=$('#identityGrid');if(!el)return;if(!ADMIN){el.closest('#identitySwitcher')?.remove();return}el.innerHTML=TEAM.map(p=>{const x=profile(p);return`<button type="button" class="identity-item ${p===ME?'on':''}" data-switch-person="${p}"><span class="identity-avatar" data-profile-avatar="${p}">${p[0]}</span><span><b>${esc(x.nickname||p)}</b><small>${esc(x.role||DEFAULT_ROLE[p]||'')}</small></span>${p===ME?'<em>当前</em>':''}</button>`}).join('');TEAM.forEach(p=>paintAvatar(el.querySelector(`[data-profile-avatar="${p}"]`),p))}
-function paintAll(){TEAM.forEach(p=>$$(`.avatar[data-person="${p}"]`).forEach(el=>paintAvatar(el,p)));paintAvatar($('#homeAvatar'),ME);paintAvatar($('#profileAvatar'),ME);paintAvatar($('#miniAvatar'),ME);const me=profile(ME);const hello=$('#helloName');if(hello)hello.textContent=`${me.nickname||ME}，今天先看这些`;const role=$('#helloRole');if(role)role.textContent=me.role||DEFAULT_ROLE[ME]||'';const nick=$('#nicknameInput');if(nick&&document.activeElement!==nick)nick.value=me.nickname||ME;const roleInput=$('#roleInput');if(roleInput&&document.activeElement!==roleInput)roleInput.value=me.role||DEFAULT_ROLE[ME]||'';renderIdentityGrid();$$('#teamStrip .team-one').forEach(card=>{const av=card.querySelector('.avatar[data-person]');if(!av)return;const p=av.dataset.person;paintAvatar(av,p);const b=card.querySelector('b');if(b)b.textContent=profile(p).nickname||p;const small=card.querySelector('small');if(small){const dot=small.querySelector('.dot');const onlineText=dot?.classList.contains('on')?'在线':'离线';small.innerHTML='';if(dot)small.appendChild(dot);small.append(`${onlineText} · ${profile(p).role||DEFAULT_ROLE[p]||''}`)}});window.dispatchEvent(new CustomEvent('cw:profiles',{detail:{profiles:[...profiles]}}))}
-function applyAdminUi(){const old=$('#switchIdentity');old?.closest('.card')?.remove();const box=$('#identitySwitcher');if(!ADMIN)box?.remove();else if(box){box.querySelector('.minimal-head span').textContent='管理员';box.querySelector('.minimal-head h2').textContent='切换查看成员'} }
-function ensureCrop(){if($('#avatarCropOverlay'))return;const ov=document.createElement('div');ov.id='avatarCropOverlay';ov.className='avatar-crop-overlay';ov.innerHTML=`<div class="avatar-crop-card"><div class="crop-head"><div><b>调整头像</b><span>拖动照片选择位置</span></div><button type="button" data-crop-close>×</button></div><div class="crop-stage" id="cropStage"><img id="cropImage" alt="头像裁剪"><div class="crop-mask"></div></div><label class="crop-zoom"><span>缩放</span><input id="cropZoom" type="range" min="1" max="3" step="0.01" value="1"></label><div class="crop-actions"><button type="button" data-crop-close>取消</button><button type="button" class="primary" id="cropConfirm">使用这个位置</button></div></div>`;document.body.appendChild(ov);const stage=$('#cropStage'),img=$('#cropImage'),zoom=$('#cropZoom');let drag=null;const clamp=()=>{if(!cropState)return;const w=cropState.nw*cropState.scale*cropState.zoom,h=cropState.nh*cropState.scale*cropState.zoom,maxX=Math.max(0,(w-300)/2),maxY=Math.max(0,(h-300)/2);cropState.dx=Math.max(-maxX,Math.min(maxX,cropState.dx));cropState.dy=Math.max(-maxY,Math.min(maxY,cropState.dy));img.style.width=`${w}px`;img.style.height=`${h}px`;img.style.left=`${150+cropState.dx-w/2}px`;img.style.top=`${150+cropState.dy-h/2}px`};stage.addEventListener('pointerdown',e=>{if(!cropState)return;drag={x:e.clientX,y:e.clientY,dx:cropState.dx,dy:cropState.dy};stage.setPointerCapture?.(e.pointerId)});stage.addEventListener('pointermove',e=>{if(!drag||!cropState)return;cropState.dx=drag.dx+(e.clientX-drag.x);cropState.dy=drag.dy+(e.clientY-drag.y);clamp()});const end=()=>drag=null;stage.addEventListener('pointerup',end);stage.addEventListener('pointercancel',end);zoom.oninput=()=>{if(!cropState)return;cropState.zoom=Number(zoom.value);clamp()};ov.addEventListener('click',e=>{if(e.target===ov||e.target.closest('[data-crop-close]'))closeCrop()});$('#cropConfirm').onclick=confirmCrop;window.__cwCropClamp=clamp}
-function closeCrop(){const ov=$('#avatarCropOverlay');ov?.classList.remove('show');if(cropState?.url)URL.revokeObjectURL(cropState.url);if(cropState?.reject)cropState.reject(new Error('cancelled'));cropState=null}
-function cropFile(file){ensureCrop();return new Promise((resolve,reject)=>{if(!file||!/^image\//.test(file.type||''))return reject(new Error('请选择图片文件'));const url=URL.createObjectURL(file),img=$('#cropImage');img.onload=()=>{const nw=img.naturalWidth,nh=img.naturalHeight,scale=Math.max(300/nw,300/nh);cropState={url,nw,nh,scale,zoom:1,dx:0,dy:0,resolve,reject};$('#cropZoom').value='1';window.__cwCropClamp?.();$('#avatarCropOverlay').classList.add('show')};img.onerror=()=>{URL.revokeObjectURL(url);reject(new Error('图片读取失败'))};img.src=url})}
-function confirmCrop(){if(!cropState)return;const st=cropState,scale=st.scale*st.zoom,displayW=st.nw*scale,displayH=st.nh*scale,sx=((displayW-300)/2-st.dx)/scale,sy=((displayH-300)/2-st.dy)/scale,ss=300/scale,c=document.createElement('canvas');c.width=c.height=420;const ctx=c.getContext('2d');ctx.imageSmoothingEnabled=true;ctx.imageSmoothingQuality='high';ctx.drawImage($('#cropImage'),Math.max(0,sx),Math.max(0,sy),Math.min(ss,st.nw),Math.min(ss,st.nh),0,0,420,420);let data=c.toDataURL('image/jpeg',.84);if(data.length>760000)data=c.toDataURL('image/jpeg',.72);const resolve=st.resolve;if(st.url)URL.revokeObjectURL(st.url);cropState=null;$('#avatarCropOverlay')?.classList.remove('show');resolve(data)}
-async function refresh(showError=false){try{const j=await api('list_profiles');profiles=j.profiles||[];paintAll();applyAdminUi()}catch(e){if(showError)toast('资料同步失败：'+e.message)}}
-function bindProfileActions(){const save=$('#saveProfile');if(save)save.onclick=async()=>{if(busy)return;const nickname=$('#nicknameInput')?.value.trim(),role=$('#roleInput')?.value.trim()||'';if(!nickname)return toast('昵称不能为空');busy=true;save.disabled=true;const state=$('#avatarState');if(state)state.textContent='正在同步资料…';try{const j=await api('update_profile',{person:ME,nickname,role});mergeProfile(j.profile);paintAll();channel?.postMessage({type:'profile',profile:j.profile});if(state)state.textContent='昵称和职责已同步给所有人';toast('个人资料已同步')}catch(e){if(state)state.textContent='同步失败：'+e.message;toast('同步失败：'+e.message)}finally{busy=false;save.disabled=false}};const change=$('#changeAvatar'),input=$('#avatarInput');if(change&&input){change.onclick=()=>{input.value='';input.click()};input.onchange=async e=>{const file=e.target.files?.[0];if(!file||busy)return;const old={...profile(ME)},state=$('#avatarState');try{const data=await cropFile(file);busy=true;change.disabled=true;if(state)state.textContent='正在上传头像…';mergeProfile({...old,avatar_url:data});paintAll();const j=await api('upload_avatar',{person:ME,data_url:data});mergeProfile(j.profile);paintAll();channel?.postMessage({type:'profile',profile:j.profile});if(state)state.textContent='头像已同步给所有人';toast('头像更换成功')}catch(err){if(err?.message!=='cancelled'){mergeProfile(old);paintAll();if(state)state.textContent='头像上传失败：'+err.message;toast('头像上传失败')}}finally{busy=false;change.disabled=false;input.value=''}}}}
-function bind(){document.addEventListener('click',e=>{const sw=e.target.closest('[data-switch-person]');if(!sw)return;if(!ADMIN){e.preventDefault();e.stopPropagation();return}const p=sw.dataset.switchPerson;if(!TEAM.includes(p)||p===ME)return;e.preventDefault();e.stopPropagation();localStorage.setItem('cw-person',p);location.replace(`./app-v4.html?person=${encodeURIComponent(p)}`)},true);channel?.addEventListener('message',e=>{if(e.data?.type==='profile'&&e.data.profile){mergeProfile(e.data.profile);paintAll()}});document.addEventListener('visibilitychange',()=>{if(!document.hidden)refresh(false)});window.addEventListener('focus',()=>refresh(false))}
-async function init(){ensureCrop();bindProfileActions();bind();applyAdminUi();await refresh(false);paintAll();setInterval(()=>{if(!document.hidden)refresh(false)},12000);document.documentElement.classList.add('profile-sync-ready')}
-if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',()=>setTimeout(init,80),{once:true});else setTimeout(init,80);
+(() => {
+  "use strict";
+  const TEAM = ["瑞子", "普子", "航子", "辉子"];
+  const ROLE = {
+    瑞子: "酒店 / 账本",
+    普子: "攻略 / 路况",
+    航子: "机票 / 航班",
+    辉子: "租车 / 车务",
+  };
+  const ME =
+    new URLSearchParams(location.search).get("person") ||
+    localStorage.getItem("cw-person");
+  const endpoint =
+    "https://wpfqcztbxxarsrruuuce.supabase.co/functions/v1/trip-profile";
+  const $ = (s) => document.querySelector(s),
+    $$ = (s) => [...document.querySelectorAll(s)];
+  let profiles = [],
+    busy = false,
+    pending = null,
+    crop = null,
+    drag = null,
+    refreshVersion = 0;
+  const failures = new Set(),
+    images = new Map();
+  const channel =
+    "BroadcastChannel" in window
+      ? new BroadcastChannel("cw-profile-sync")
+      : null;
+  const esc = (s) =>
+    String(s ?? "").replace(
+      /[&<>"']/g,
+      (c) =>
+        ({
+          "&": "&amp;",
+          "<": "&lt;",
+          ">": "&gt;",
+          '"': "&quot;",
+          "'": "&#39;",
+        })[c],
+    );
+  const get = (p) =>
+    profiles.find((x) => x.person === p) || {
+      person: p,
+      nickname: p,
+      role: ROLE[p],
+      avatar_url: "",
+    };
+  function notify(text) {
+    const el = $("#avatarState");
+    if (el) el.textContent = text;
+    window.CWUX?.toast(text);
+  }
+  async function api(action, payload = {}) {
+    const c = new AbortController(),
+      t = setTimeout(() => c.abort(), 15000);
+    try {
+      const r = await fetch(endpoint, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ trip_slug: "chuanxi2026", action, payload }),
+        signal: c.signal,
+      });
+      const j = await r.json();
+      if (!r.ok || j.ok === false) throw new Error(j.error || "同步失败");
+      return j;
+    } finally {
+      clearTimeout(t);
+    }
+  }
+  function merge(p) {
+    if (!p || !TEAM.includes(p.person)) return;
+    const i = profiles.findIndex((x) => x.person === p.person);
+    if (i < 0) profiles.push(p);
+    else profiles[i] = { ...profiles[i], ...p };
+  }
+  function imageUrl(p) {
+    const u = get(p).avatar_url;
+    return u && !failures.has(u) ? u : window.CHUANXI_AVATARS?.[p[0]] || "";
+  }
+  function paintAvatar(el, p) {
+    if (!el) return;
+    const u = imageUrl(p);
+    el.dataset.person = p;
+    el.setAttribute("aria-label", get(p).nickname || p);
+    if (el.dataset.avatarSrc === u) return;
+    el.dataset.avatarSrc = u;
+    el.textContent = u ? "" : p[0];
+    el.style.backgroundImage = u ? `url(${JSON.stringify(u)})` : "";
+    el.style.color = u ? "transparent" : "";
+    if (u && !images.has(u)) {
+      const img = new Image();
+      images.set(u, img);
+      img.onerror = () => {
+        failures.add(u);
+        images.delete(u);
+        paint();
+      };
+      img.src = u;
+    }
+  }
+  function paint() {
+    for (const p of TEAM)
+      $$(`.avatar[data-person="${p}"],[data-profile-avatar="${p}"]`).forEach(
+        (el) => paintAvatar(el, p),
+      );
+    for (const id of ["homeAvatar", "miniAvatar", "profileAvatar"])
+      paintAvatar($("#" + id), ME);
+    const me = get(ME);
+    if ($("#helloName"))
+      $("#helloName").textContent = `${me.nickname || ME}，今天先看这些`;
+    if ($("#helloRole")) $("#helloRole").textContent = me.role || ROLE[ME];
+    for (const [id, key, fallback] of [
+      ["nicknameInput", "nickname", ME],
+      ["roleInput", "role", ROLE[ME]],
+    ]) {
+      const el = $("#" + id);
+      if (el && el.dataset.dirty !== "1" && document.activeElement !== el)
+        el.value = me[key] || fallback;
+    }
+    const grid = $("#identityGrid");
+    if (grid) {
+      if (sessionStorage.getItem("cw-admin") !== "1")
+        grid.closest("#identitySwitcher")?.remove();
+      else {
+        const html = TEAM.map(
+          (p) =>
+            `<button type="button" class="identity-item ${p === ME ? "on" : ""}" data-switch-person="${p}"><span class="identity-avatar" data-profile-avatar="${p}"></span><span><b>${esc(get(p).nickname || p)}</b><small>${esc(get(p).role || ROLE[p])}</small></span>${p === ME ? "<em>当前</em>" : ""}</button>`,
+        ).join("");
+        if (grid.dataset.content !== html) {
+          grid.innerHTML = html;
+          grid.dataset.content = html;
+          TEAM.forEach((p) =>
+            paintAvatar(grid.querySelector(`[data-profile-avatar="${p}"]`), p),
+          );
+        }
+      }
+    }
+    window.dispatchEvent(
+      new CustomEvent("cw:profiles", { detail: { profiles: [...profiles] } }),
+    );
+  }
+  function refresh() {
+    if (pending || busy) return pending || Promise.resolve();
+    const version = refreshVersion;
+    pending = api("list_profiles")
+      .then((j) => {
+        if (version !== refreshVersion || busy) return;
+        (j.profiles || []).forEach(merge);
+        paint();
+      })
+      .catch(() => {
+        if (!profiles.length) notify("资料暂未同步，可稍后重试");
+      })
+      .finally(() => (pending = null));
+    return pending;
+  }
+  function cropSize() {
+    return (
+      $("#cropStage").getBoundingClientRect().width ||
+      $("#cropStage").clientWidth ||
+      264
+    );
+  }
+  function clamp() {
+    if (!crop) return;
+    const size = cropSize(),
+      old = crop.size || size;
+    crop.dx *= size / old;
+    crop.dy *= size / old;
+    crop.size = size;
+    crop.scale = Math.max(size / crop.nw, size / crop.nh);
+    const w = crop.nw * crop.scale * crop.zoom,
+      h = crop.nh * crop.scale * crop.zoom;
+    crop.dx = Math.max(-(w - size) / 2, Math.min((w - size) / 2, crop.dx));
+    crop.dy = Math.max(-(h - size) / 2, Math.min((h - size) / 2, crop.dy));
+    Object.assign($("#cropImage").style, {
+      width: `${w}px`,
+      height: `${h}px`,
+      left: `${size / 2 + crop.dx - w / 2}px`,
+      top: `${size / 2 + crop.dy - h / 2}px`,
+    });
+  }
+  function closeCrop() {
+    $("#avatarCropOverlay")?.classList.remove("show");
+    if (crop?.url) URL.revokeObjectURL(crop.url);
+    crop = null;
+    drag = null;
+    $("#avatarInput").value = "";
+    $("#changeAvatar").focus({ preventScroll: true });
+  }
+  function ensureCrop() {
+    const el = document.createElement("div");
+    el.id = "avatarCropOverlay";
+    el.className = "avatar-crop-overlay";
+    el.innerHTML =
+      '<div class="avatar-crop-card"><div class="crop-head"><div><b>调整头像</b><span>拖动照片或调整缩放，圆圈内就是最终头像</span></div><button type="button" aria-label="关闭头像裁剪" data-crop-close>×</button></div><div class="crop-stage" id="cropStage"><img id="cropImage" alt="头像裁剪预览" draggable="false"><div class="crop-mask"></div></div><label class="crop-zoom"><span>缩放</span><input id="cropZoom" type="range" min="1" max="3" step="0.01" value="1"></label><div class="crop-actions"><button type="button" data-crop-close>取消</button><button type="button" class="primary" id="cropConfirm">使用这个位置</button></div></div>';
+    document.body.appendChild(el);
+    el.addEventListener("click", (e) => {
+      if (e.target === el || e.target.closest("[data-crop-close]")) closeCrop();
+    });
+    const stage = $("#cropStage");
+    stage.addEventListener("pointerdown", (e) => {
+      if (!crop || e.button > 0) return;
+      drag = {
+        id: e.pointerId,
+        x: e.clientX,
+        y: e.clientY,
+        dx: crop.dx,
+        dy: crop.dy,
+      };
+      stage.setPointerCapture?.(e.pointerId);
+    });
+    stage.addEventListener("pointermove", (e) => {
+      if (!crop || !drag || e.pointerId !== drag.id) return;
+      crop.dx = drag.dx + e.clientX - drag.x;
+      crop.dy = drag.dy + e.clientY - drag.y;
+      clamp();
+    });
+    ["pointerup", "pointercancel", "lostpointercapture"].forEach((type) =>
+      stage.addEventListener(type, () => (drag = null)),
+    );
+    $("#cropZoom").oninput = (e) => {
+      if (crop) {
+        crop.zoom = Number(e.target.value);
+        clamp();
+      }
+    };
+    window.addEventListener("resize", clamp);
+    $("#cropConfirm").onclick = async () => {
+      if (!crop || busy) return;
+      const st = crop,
+        scale = st.scale * st.zoom,
+        side = st.size / scale;
+      const sx = (st.nw - side) / 2 - st.dx / scale,
+        sy = (st.nh - side) / 2 - st.dy / scale;
+      let data;
+      try {
+        const canvas = document.createElement("canvas");
+        canvas.width = canvas.height = 420;
+        const ctx = canvas.getContext("2d");
+        ctx.fillStyle = "#fff";
+        ctx.fillRect(0, 0, 420, 420);
+        ctx.imageSmoothingEnabled = true;
+        ctx.imageSmoothingQuality = "high";
+        ctx.drawImage(
+          $("#cropImage"),
+          Math.max(0, sx),
+          Math.max(0, sy),
+          side,
+          side,
+          0,
+          0,
+          420,
+          420,
+        );
+        data = canvas.toDataURL("image/jpeg", 0.84);
+      } catch {
+        notify("图片无法裁剪，请换一张 JPG 或 PNG 图片");
+        return;
+      }
+      closeCrop();
+      busy = true;
+      refreshVersion++;
+      $("#changeAvatar").disabled = true;
+      notify("正在同步头像…");
+      try {
+        const j = await api("upload_avatar", { person: ME, data_url: data });
+        if (!j.profile?.avatar_url) throw new Error("未收到保存结果，请重试");
+        merge(j.profile);
+        paint();
+        channel?.postMessage({ type: "profile", profile: j.profile });
+        notify("头像已同步给所有人");
+      } catch (e) {
+        notify(
+          "头像上传失败：" +
+            (e.name === "AbortError" ? "连接超时，请重试" : e.message),
+        );
+      } finally {
+        busy = false;
+        $("#changeAvatar").disabled = false;
+      }
+    };
+  }
+  function bind() {
+    ["nicknameInput", "roleInput"].forEach((id) =>
+      $("#" + id).addEventListener(
+        "input",
+        (e) => (e.target.dataset.dirty = "1"),
+      ),
+    );
+    $("#saveProfile").onclick = async () => {
+      if (busy) return;
+      const nick = $("#nicknameInput"),
+        role = $("#roleInput"),
+        nickname = nick.value.trim(),
+        value = role.value.trim();
+      if (!nickname) return notify("昵称不能为空");
+      busy = true;
+      refreshVersion++;
+      $("#saveProfile").disabled = true;
+      notify("正在同步资料…");
+      try {
+        const j = await api("update_profile", {
+          person: ME,
+          nickname,
+          role: value,
+        });
+        if (!j.profile) throw new Error("未收到保存结果，请重试");
+        if (nick.value.trim() === nickname) delete nick.dataset.dirty;
+        if (role.value.trim() === value) delete role.dataset.dirty;
+        merge(j.profile);
+        paint();
+        channel?.postMessage({ type: "profile", profile: j.profile });
+        notify("个人资料已同步");
+      } catch (e) {
+        notify("保存失败，输入已保留：" + e.message);
+      } finally {
+        busy = false;
+        $("#saveProfile").disabled = false;
+      }
+    };
+    $("#changeAvatar").onclick = () => {
+      if (!busy) {
+        $("#avatarInput").value = "";
+        $("#avatarInput").click();
+      }
+    };
+    $("#avatarInput").onchange = (e) => {
+      const f = e.target.files?.[0];
+      if (!f || busy) return;
+      if (!/^image\/(jpeg|png|webp|gif|avif|heic|heif)$/i.test(f.type))
+        return notify("请选择 JPG、PNG 或其他常见照片格式");
+      if (f.size > 20 * 1024 * 1024)
+        return notify("照片超过 20 MB，请先缩小后再上传");
+      const url = URL.createObjectURL(f),
+        img = $("#cropImage");
+      img.onload = () => {
+        crop = {
+          url,
+          nw: img.naturalWidth,
+          nh: img.naturalHeight,
+          zoom: 1,
+          dx: 0,
+          dy: 0,
+        };
+        $("#avatarCropOverlay").classList.add("show");
+        $("#cropZoom").value = "1";
+        clamp();
+      };
+      img.onerror = () => {
+        URL.revokeObjectURL(url);
+        notify("无法读取此照片，请转为 JPG 或 PNG 后重试");
+      };
+      img.src = url;
+    };
+    channel?.addEventListener("message", (e) => {
+      if (e.data?.type === "profile") {
+        refreshVersion++;
+        merge(e.data.profile);
+        paint();
+      }
+    });
+    document.addEventListener("visibilitychange", () => {
+      if (!document.hidden) refresh();
+    });
+    window.addEventListener("focus", refresh);
+  }
+  function init() {
+    window.CWProfiles = { get, imageUrl, refresh, paintAvatar };
+    ensureCrop();
+    bind();
+    $("#switchIdentity")?.closest(".card")?.remove();
+    refresh();
+    setInterval(() => {
+      if (!document.hidden) refresh();
+    }, 15000);
+    document.documentElement.classList.add("profile-sync-ready");
+  }
+  if (document.readyState === "loading")
+    document.addEventListener("DOMContentLoaded", init, { once: true });
+  else init();
 })();

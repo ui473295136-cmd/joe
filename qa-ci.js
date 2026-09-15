@@ -8,7 +8,7 @@ const cors={'Access-Control-Allow-Origin':'*','Access-Control-Allow-Headers':'co
 const okJson=(req,obj,status=200)=>req.respond({status,contentType:'application/json',headers:cors,body:JSON.stringify(obj)});
 const tap=async(page,pin)=>{for(const n of pin){await page.click(`#keypad button[data-key="${n}"]`);await sleep(55)}};
 async function authPage(browser,mode){
-  const page=await browser.newPage();let setupCalls=0,verifyCalls=0;
+  const context=await browser.createBrowserContext();const page=await context.newPage();let setupCalls=0,verifyCalls=0;
   await page.setViewport({width:390,height:844,deviceScaleFactor:3,isMobile:true,hasTouch:true});
   await page.setRequestInterception(true);
   page.on('request',req=>{
@@ -93,7 +93,7 @@ async function appQA(browser){
     page.on('console',m=>{if(m.type()==='error'&&!m.text().includes('net::ERR'))errors.push('console:'+m.text())});
     await page.setRequestInterception(true);
     page.on('request',req=>{const u=req.url();if(u.includes('webrd0')||u.includes('map.geoq.cn'))return req.respond({status:200,contentType:'image/png',body:tiny});req.continue()});
-    await page.goto(`${base}/app-v4.html?person=${encodeURIComponent(person)}&qa=1`,{waitUntil:'domcontentloaded',timeout:20000});
+    await page.goto(`${base}/app-v4.html?person=${encodeURIComponent(person)}&qa=1&probe=1`,{waitUntil:'domcontentloaded',timeout:20000});
     try{await page.waitForFunction(()=>document.querySelector('#qaResult')?.dataset.status,{timeout:32000})}catch{}
     const result=await page.$eval('#qaResult',e=>({status:e.dataset.status,text:e.textContent})).catch(()=>({status:'missing',text:'qaResult missing'}));
     const bodyPin=await page.evaluate(()=>/PIN不正确|pin不正确/i.test(document.body.innerText));
@@ -106,7 +106,7 @@ async function appQA(browser){
   await slow.setViewport({width:390,height:844,deviceScaleFactor:3,isMobile:true,hasTouch:true});
   await slow.setRequestInterception(true);
   slow.on('request',req=>{const u=req.url();if(u.includes('webrd0'))return setTimeout(()=>req.abort('timedout').catch(()=>{}),2600);if(u.includes('map.geoq.cn'))return req.respond({status:200,contentType:'image/png',body:tiny});req.continue()});
-  await slow.goto(`${base}/app-v4.html?person=${encodeURIComponent('瑞子')}&qa=1`,{waitUntil:'domcontentloaded',timeout:20000});
+  await slow.goto(`${base}/app-v4.html?person=${encodeURIComponent('瑞子')}&qa=1&probe=1`,{waitUntil:'domcontentloaded',timeout:20000});
   await slow.waitForSelector('#quickMapBtn',{timeout:10000});await slow.click('#quickMapBtn');
   try{await slow.waitForFunction(()=>['ready','fallback'].includes(document.querySelector('#fullMap')?.dataset.mapState),{timeout:8000})}catch{}
   const state=await slow.$eval('#fullMap',e=>e.dataset.mapState||'');if(!['ready','fallback'].includes(state)){failed=true;console.error('APP_FAIL stalled primary map did not fail over',state)}
