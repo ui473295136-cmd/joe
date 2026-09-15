@@ -82,6 +82,7 @@
     style("./social-v1.css?v=2", "cw-social-style");
     style("./driver-fun-v2.css?v=1", "cw-driver-fun-style");
     style("./avatar-interactions-v1.css?v=1", "cw-avatar-play-style");
+    style("./trip-stage-v2.css?v=1", "cw-trip-stage-style");
     script("./time-compat-v1.js?v=1", "cw-time-compat");
     script("./minimal-v1.js?v=3", "cw-minimal");
     script("./profile-sync-v2.js?v=4", "cw-profile");
@@ -99,6 +100,7 @@
     script("./social-v1.js?v=2", "cw-social");
     script("./driver-fun-v2.js?v=1", "cw-driver-fun");
     script("./avatar-interactions-v1.js?v=1", "cw-avatar-play");
+    script("./trip-stage-v2.js?v=1", "cw-trip-stage");
   }
   if (document.readyState === "complete") setTimeout(loadExtras, 40);
   else
