@@ -101,6 +101,7 @@
     script("./driver-fun-v2.js?v=1", "cw-driver-fun");
     script("./avatar-interactions-v1.js?v=1", "cw-avatar-play");
     script("./trip-stage-v2.js?v=1", "cw-trip-stage");
+    script("./itinerary-header-sync-v1.js?v=1", "cw-itinerary-heading");
   }
   if (document.readyState === "complete") setTimeout(loadExtras, 40);
   else
