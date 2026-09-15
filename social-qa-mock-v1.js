@@ -32,15 +32,14 @@
         updated_at: now,
       },
     ],
+    avatar_messages: [{ person: "瑞子", message: "出发别忘充电", updated_at: now }],
     nudges: [],
     readiness: [],
     driver_sessions: [
-      {
-        id: "qa-driver",
-        person: "辉子",
-        started_at: new Date(Date.now() - 42 * 60000).toISOString(),
-        ended_at: null,
-      },
+      { id: "qa-rui", person: "瑞子", started_at: new Date(Date.now() - 9 * 3600000).toISOString(), ended_at: new Date(Date.now() - 7 * 3600000).toISOString() },
+      { id: "qa-pu", person: "普子", started_at: new Date(Date.now() - 7 * 3600000).toISOString(), ended_at: new Date(Date.now() - 5.5 * 3600000).toISOString() },
+      { id: "qa-hang", person: "航子", started_at: new Date(Date.now() - 5.5 * 3600000).toISOString(), ended_at: new Date(Date.now() - 4.5 * 3600000).toISOString() },
+      { id: "qa-hui", person: "辉子", started_at: new Date(Date.now() - 42 * 60000).toISOString(), ended_at: null },
     ],
     expense_reactions: [],
     progress: [],
@@ -88,116 +87,54 @@
     const u = String(typeof input === "string" ? input : input?.url || "");
     if (!u.includes("/functions/v1/trip-social")) return prev(input, init);
     let b = {};
-    try {
-      b = JSON.parse(init.body || "{}");
-    } catch {}
-    const a = b.action,
-      p = b.payload || {};
-    if (a === "state")
-      return res({ ok: true, server_time: new Date().toISOString(), ...state });
+    try { b = JSON.parse(init.body || "{}"); } catch {}
+    const a = b.action, p = b.payload || {};
+    if (a === "state") return res({ ok: true, server_time: new Date().toISOString(), ...state });
     if (a === "set_status") {
       state.statuses = state.statuses.filter((x) => x.person !== ME);
-      state.statuses.push({
-        person: ME,
-        emoji: p.emoji,
-        label: p.label,
-        expires_at: new Date(Date.now() + 7200000).toISOString(),
-        updated_at: now,
-      });
+      state.statuses.push({ person: ME, emoji: p.emoji, label: p.label, expires_at: new Date(Date.now() + 7200000).toISOString(), updated_at: now });
       return res({ ok: true });
     }
-    if (a === "clear_status") {
-      state.statuses = state.statuses.filter((x) => x.person !== ME);
+    if (a === "clear_status") { state.statuses = state.statuses.filter((x) => x.person !== ME); return res({ ok: true }); }
+    if (a === "set_avatar_message") {
+      state.avatar_messages = state.avatar_messages.filter(x => x.person !== ME);
+      if (String(p.message || '').trim()) state.avatar_messages.push({ person: ME, message: String(p.message).trim().slice(0,24), updated_at: new Date().toISOString() });
       return res({ ok: true });
     }
     if (a === "nudge") {
-      state.nudges.unshift({
-        id: "n" + Date.now(),
-        from_person: ME,
-        to_person: p.to_person,
-        kind: p.kind,
-        message: p.message,
-        created_at: new Date().toISOString(),
-        seen_at: null,
-      });
+      state.nudges.unshift({ id: "n" + Date.now(), from_person: ME, to_person: p.to_person, kind: p.kind, message: p.message, created_at: new Date().toISOString(), seen_at: null });
       return res({ ok: true });
     }
-    if (a === "mark_nudges_seen") {
-      state.nudges.forEach(
-        (x) => (x.seen_at = x.seen_at || new Date().toISOString()),
-      );
-      return res({ ok: true });
-    }
+    if (a === "mark_nudges_seen") { state.nudges.forEach((x) => (x.seen_at = x.seen_at || new Date().toISOString())); return res({ ok: true }); }
     if (a === "set_ready") {
-      state.readiness = state.readiness.filter(
-        (x) => !(x.checkpoint_key === p.checkpoint_key && x.person === ME),
-      );
-      state.readiness.push({
-        checkpoint_key: p.checkpoint_key,
-        checkpoint_label: p.checkpoint_label,
-        person: ME,
-        ready: !!p.ready,
-        updated_at: new Date().toISOString(),
-      });
+      state.readiness = state.readiness.filter((x) => !(x.checkpoint_key === p.checkpoint_key && x.person === ME));
+      state.readiness.push({ checkpoint_key: p.checkpoint_key, checkpoint_label: p.checkpoint_label, person: ME, ready: !!p.ready, updated_at: new Date().toISOString() });
       return res({ ok: true });
     }
     if (a === "take_wheel") {
-      state.driver_sessions.forEach((x) => {
-        if (!x.ended_at) x.ended_at = new Date().toISOString();
-      });
-      state.driver_sessions.unshift({
-        id: "d" + Date.now(),
-        person: ME,
-        started_at: new Date().toISOString(),
-        ended_at: null,
-      });
+      state.driver_sessions.forEach((x) => { if (!x.ended_at) x.ended_at = new Date().toISOString(); });
+      state.driver_sessions.unshift({ id: "d" + Date.now(), person: ME, started_at: new Date().toISOString(), ended_at: null });
       return res({ ok: true });
     }
-    if (a === "stop_driving") {
-      state.driver_sessions.forEach((x) => {
-        if (x.person === ME && !x.ended_at)
-          x.ended_at = new Date().toISOString();
-      });
-      return res({ ok: true });
+    if (a === "stop_driving") { state.driver_sessions.forEach((x) => { if (x.person === ME && !x.ended_at) x.ended_at = new Date().toISOString(); }); return res({ ok: true }); }
+    if (a === "update_driver_session") {
+      const x = state.driver_sessions.find(x => String(x.id) === String(p.session_id));
+      if (x) { x.person = p.driver_person || x.person; x.started_at = p.started_at || x.started_at; x.ended_at = p.ended_at || null; }
+      return res({ ok: true, session: x || null });
     }
+    if (a === "delete_driver_session") { state.driver_sessions = state.driver_sessions.filter(x => String(x.id) !== String(p.session_id)); return res({ ok: true }); }
     if (a === "react_expense") {
-      state.expense_reactions = state.expense_reactions.filter(
-        (x) =>
-          !(String(x.expense_id) === String(p.expense_id) && x.person === ME),
-      );
-      state.expense_reactions.push({
-        expense_id: p.expense_id,
-        person: ME,
-        reaction: p.reaction,
-        updated_at: new Date().toISOString(),
-      });
+      state.expense_reactions = state.expense_reactions.filter((x) => !(String(x.expense_id) === String(p.expense_id) && x.person === ME));
+      state.expense_reactions.push({ expense_id: p.expense_id, person: ME, reaction: p.reaction, updated_at: new Date().toISOString() });
       return res({ ok: true });
     }
     if (a === "vote_inspiration") {
-      state.votes = state.votes.filter(
-        (x) => !(x.inspiration_id === p.inspiration_id && x.person === ME),
-      );
-      state.votes.push({
-        inspiration_id: p.inspiration_id,
-        person: ME,
-        vote: p.vote,
-        updated_at: new Date().toISOString(),
-      });
+      state.votes = state.votes.filter((x) => !(x.inspiration_id === p.inspiration_id && x.person === ME));
+      state.votes.push({ inspiration_id: p.inspiration_id, person: ME, vote: p.vote, updated_at: new Date().toISOString() });
       return res({ ok: true });
     }
     if (a === "add_inspiration") {
-      state.inspirations.push({
-        id: "i" + Date.now(),
-        day_date: p.day_date,
-        place: p.place,
-        title: p.title,
-        pose_tip: p.pose_tip,
-        tags: p.tags || [],
-        source_type: "小红书/外部链接",
-        source_url: p.source_url,
-        image_url: p.data_url || svg(p.place),
-        sort_order: 500,
-      });
+      state.inspirations.push({ id: "i" + Date.now(), day_date: p.day_date, place: p.place, title: p.title, pose_tip: p.pose_tip, tags: p.tags || [], source_type: "小红书/外部链接", source_url: p.source_url, image_url: p.data_url || svg(p.place), sort_order: 500 });
       return res({ ok: true });
     }
     return res({ ok: true });
