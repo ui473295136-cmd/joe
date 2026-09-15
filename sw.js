@@ -1,4 +1,4 @@
-const CACHE = "chuanxi-2026-v49-bulk-sync";
+const CACHE = "chuanxi-2026-v50-bulk-sync";
 const RUNTIME = "chuanxi-2026-runtime-v3";
 const CORE = [
   "./",
@@ -34,6 +34,7 @@ const CORE = [
   "./travel-assist-dayfix-v1.js",
   "./trip-stage-v2.css",
   "./trip-stage-v2.js",
+  "./stage-tag-guard-v1.js",
   "./trip-stage-card-guard-v1.js",
   "./itinerary-header-sync-v1.js",
   "./map-state-guard-v1.js",
