@@ -1,0 +1,11 @@
+(()=>{
+'use strict';
+if(window.CWSession?.qa!==true)return;
+const ME=new URLSearchParams(location.search).get('person')||'瑞子';
+const prev=window.fetch.bind(window),now=()=>new Date().toISOString();
+const meta={tomato:['🍅','番茄','😖','向你扔来了一个番茄'],bomb:['💣','炸弹','😭','向你扔来了一颗炸弹'],punch:['🥊','拳击','🥴','给你来了一拳'],flower:['🌹','鲜花','😍','送了你一朵鲜花'],confetti:['🎉','礼花','🤩','为你放了一束礼花'],water:['💦','水','😂','向你泼来了一捧水'],beg:['🏳️','求饶','🥺','向你求饶了：别打了哥'],accept:['❤️','收下啦','🥰','开心地收下了你的礼物']};
+let rows=[];
+const res=(o,s=200)=>Promise.resolve(new Response(JSON.stringify(o),{status:s,headers:{'Content-Type':'application/json'}}));
+window.fetch=async(input,init={})=>{const u=String(typeof input==='string'?input:input?.url||'');if(!u.includes('/functions/v1/trip-interaction'))return prev(input,init);let b={};try{b=JSON.parse(init.body||'{}')}catch{}const a=b.action,p=b.payload||{};if(a==='state')return res({ok:true,interactions:rows.filter(x=>x.from_person===ME||x.to_person===ME),today_interactions:rows});if(a==='send'){const m=meta[p.kind]||meta.tomato,r={id:'qa-play-'+Date.now(),trip_slug:'chuanxi2026',from_person:ME,to_person:p.to_person,kind:p.kind,emoji:m[0],label:m[1],mood:m[2],message:m[3],seen_at:null,created_at:now()};rows.unshift(r);return res({ok:true,row:r})}if(a==='respond'){const o=rows.find(x=>x.id===p.interaction_id),m=meta[p.kind],r={id:'qa-response-'+Date.now(),from_person:ME,to_person:o?.from_person||'瑞子',kind:p.kind,emoji:m[0],label:m[1],mood:m[2],message:m[3],seen_at:null,created_at:now()};if(o)o.seen_at=now();rows.unshift(r);return res({ok:true,row:r})}if(a==='mark_seen'){rows.forEach(x=>{if(x.to_person===ME&&(!p.ids||p.ids.includes(x.id)))x.seen_at=x.seen_at||now()});return res({ok:true,count:1})}return res({ok:true})};
+window.__cwInteractionQAPush=(from=ME==='瑞子'?'辉子':'瑞子',kind='bomb')=>{const m=meta[kind],r={id:'qa-in-'+Date.now(),from_person:from,to_person:ME,kind,emoji:m[0],label:m[1],mood:m[2],message:m[3],seen_at:null,created_at:now()};rows.unshift(r);return r};
+})();
