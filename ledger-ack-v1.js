@@ -271,6 +271,7 @@
           childList: true,
         });
     }
+    setTimeout(() => document.dispatchEvent(new Event("visibilitychange")), 40);
     if (!QA)
       setInterval(() => {
         if (!document.hidden) paint();
