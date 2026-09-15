@@ -19,6 +19,8 @@ jobs:
           node --check app-v4.js
           node --check auth-guard.js
           node --check geo-throttle.js
+          node --check time-compat-v1.js
+          node --check driver-history-v1.js
           node --check minimal-v1.js
           node --check profile-sync-v2.js
           node --check profile-upload-v3.js
@@ -42,7 +44,7 @@ jobs:
       - name: Required files and links
         shell: bash
         run: |
-          for f in index.html app-v4.html app-v4.css app-v4.js auth-guard.js geo-throttle.js minimal-v1.js minimal-v1.css profile-sync-v2.js profile-sync-v2.css profile-upload-v3.js admin-switch-v1.js ledger-ack-v1.js itinerary-live-v1.js itinerary-live-v1.css daily-card-v1.js daily-card-v1.css travel-assist-v1.js travel-assist-v1.css travel-assist-dayfix-v1.js map-state-guard-v1.js social-v1.js social-v1.css social-qa-mock-v1.js map-v5.js map-v5.css qa-mock.js qa-probe.js qa-ci.js avatars.js manifest.webmanifest icon.svg sw.js road-routes.json; do test -s "$f"; done
+          for f in index.html app-v4.html app-v4.css app-v4.js auth-guard.js geo-throttle.js time-compat-v1.js driver-history-v1.js driver-history-v1.css minimal-v1.js minimal-v1.css profile-sync-v2.js profile-sync-v2.css profile-upload-v3.js admin-switch-v1.js ledger-ack-v1.js itinerary-live-v1.js itinerary-live-v1.css daily-card-v1.js daily-card-v1.css travel-assist-v1.js travel-assist-v1.css travel-assist-dayfix-v1.js map-state-guard-v1.js social-v1.js social-v1.css social-qa-mock-v1.js map-v5.js map-v5.css qa-mock.js qa-probe.js qa-ci.js avatars.js manifest.webmanifest icon.svg sw.js road-routes.json; do test -s "$f"; done
           for f in session-store.js login.js app-bootstrap.js interaction-ux.js interaction-ux.css; do test -s "$f"; done
           grep -q 'trip-auth' session-store.js
           grep -q 'login.js' index.html
@@ -50,6 +52,9 @@ jobs:
           grep -q 'app-bootstrap.js' app-v4.html
           grep -q 'app-v4.js' app-bootstrap.js
           grep -q 'map-v5.js' app-bootstrap.js
+          grep -q 'time-compat-v1.js' geo-throttle.js
+          grep -q 'driver-history-v1.js' geo-throttle.js
+          grep -q 'driver-history-v1.css' geo-throttle.js
           grep -q 'profile-sync-v2.js' geo-throttle.js
           ! grep -q 'profile-upload-v3.js' geo-throttle.js
           grep -q 'admin-switch-v1.js' geo-throttle.js
@@ -64,7 +69,9 @@ jobs:
           ! grep -q 'ux-v6.js' geo-throttle.js
           ! grep -q 'dashboard.html' index.html
           grep -q 'navBadge' app-v4.html
-          grep -Eq 'chuanxi-2026-v[0-9]+' sw.js
+          grep -q 'chuanxi-2026-v40' sw.js
+          grep -q 'time-compat-v1.js' sw.js
+          grep -q 'driver-history-v1.js' sw.js
       - name: Session, API authorization and interaction regression
         run: npm ci --ignore-scripts && npm test
       - name: Production backend read checks
