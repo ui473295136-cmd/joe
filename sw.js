@@ -1,4 +1,4 @@
-const CACHE = "chuanxi-2026-v48-payer-settlement";
+const CACHE = "chuanxi-2026-v49-bulk-sync";
 const RUNTIME = "chuanxi-2026-runtime-v3";
 const CORE = [
   "./",
@@ -13,6 +13,7 @@ const CORE = [
   "./app-v4.js",
   "./ledger-detail-v3.js",
   "./ledger-settlement-v4.js",
+  "./sync-hub-v1.js",
   "./auth-guard.js",
   "./geo-throttle.js",
   "./time-compat-v1.js",
