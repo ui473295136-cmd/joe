@@ -1,4 +1,4 @@
-const CACHE = "chuanxi-2026-v53-daily-pairwise";
+const CACHE = "chuanxi-2026-v54-unread-ledger";
 const RUNTIME = "chuanxi-2026-runtime-v3";
 const CORE = [
   "./",
