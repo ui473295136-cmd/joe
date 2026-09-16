@@ -1,4 +1,4 @@
-const CACHE = "chuanxi-2026-v57-editable-itinerary";
+const CACHE = "chuanxi-2026-v58-itinerary-compat";
 const RUNTIME = "chuanxi-2026-runtime-v3";
 const CORE = [
   "./",
@@ -16,6 +16,7 @@ const CORE = [
   "./ledger-settlement-v4.js",
   "./ledger-related-focus-v1.js",
   "./daily-rhythm-v1.js",
+  "./structured-clone-compat-v1.js",
   "./itinerary-admin-v1.js",
   "./itinerary-dynamic-guard-v1.js",
   "./sync-hub-v1.js",
