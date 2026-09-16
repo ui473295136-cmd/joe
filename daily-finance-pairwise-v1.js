@@ -6,6 +6,7 @@
     localStorage.getItem("cw-person") ||
     "瑞子";
   if (!TEAM.includes(ME)) return;
+  const QA = window.CWSession?.qa === true;
   const FN = "https://wpfqcztbxxarsrruuuce.supabase.co/functions/v1/trip-sync";
   const TRIP = "chuanxi2026";
   let state = null,
@@ -231,9 +232,11 @@
     () => rootObserver.disconnect(),
     { once: true },
   );
-  pollId = setInterval(() => {
-    if (!document.hidden && document.querySelector("#cwDailyCard.show")) refresh(true);
-  }, 5000);
+  if (!QA)
+    pollId = setInterval(() => {
+      if (!document.hidden && document.querySelector("#cwDailyCard.show"))
+        refresh(true);
+    }, 5000);
   watchCard();
 
   window.CWDailyFinance = {
