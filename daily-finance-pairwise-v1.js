@@ -12,7 +12,9 @@
     loading = null,
     timer = 0,
     observer = null,
-    observed = null;
+    observed = null,
+    pollId = null,
+    disposed = false;
 
   const cents = (n) => Math.round(Number(n || 0) * 100);
   const moneyCt = (ct) =>
@@ -114,11 +116,14 @@
   }
 
   function signature(rows) {
-    return rows.map((r) => `${r.kind}:${r.person}:${r.ct}:${profileName(r.person)}`).join("|");
+    return rows
+      .map((r) => `${r.kind}:${r.person}:${r.ct}:${profileName(r.person)}`)
+      .join("|");
   }
 
   function patch() {
     clearTimeout(timer);
+    if (disposed) return;
     const card = document.querySelector("#cwDailyCard"),
       body = document.querySelector("#cwDailyBody");
     if (!card || !body || !state) return;
@@ -146,11 +151,13 @@
   }
 
   function schedule() {
+    if (disposed) return;
     clearTimeout(timer);
     timer = setTimeout(patch, 25);
   }
 
   async function refresh(force = false) {
+    if (disposed) return state;
     if (loading && !force) return loading;
     loading = fetch(FN, {
       method: "POST",
@@ -173,11 +180,13 @@
   }
 
   function watchCard() {
+    if (disposed) return;
     const card = document.querySelector("#cwDailyCard");
     if (!card || card === observed) return;
     observer?.disconnect();
     observed = card;
     observer = new MutationObserver(() => {
+      if (disposed) return;
       if (card.classList.contains("show")) {
         if (!state) refresh();
         schedule();
@@ -185,6 +194,13 @@
     });
     observer.observe(card, { childList: true, subtree: true, attributes: true });
     if (card.classList.contains("show")) refresh();
+  }
+
+  function cleanup() {
+    disposed = true;
+    clearTimeout(timer);
+    if (pollId != null) clearInterval(pollId);
+    observer?.disconnect();
   }
 
   window.addEventListener("cw:state", (e) => {
@@ -199,15 +215,23 @@
   window.addEventListener("focus", () => {
     if (document.querySelector("#cwDailyCard.show")) refresh(true);
   });
+  window.addEventListener("pagehide", cleanup, { once: true });
+  window.addEventListener("unload", cleanup, { once: true });
   document.addEventListener("visibilitychange", () => {
     if (!document.hidden && document.querySelector("#cwDailyCard.show")) refresh(true);
   });
 
-  new MutationObserver(watchCard).observe(document.documentElement, {
+  const rootObserver = new MutationObserver(watchCard);
+  rootObserver.observe(document.documentElement, {
     childList: true,
     subtree: true,
   });
-  setInterval(() => {
+  window.addEventListener(
+    "unload",
+    () => rootObserver.disconnect(),
+    { once: true },
+  );
+  pollId = setInterval(() => {
     if (!document.hidden && document.querySelector("#cwDailyCard.show")) refresh(true);
   }, 5000);
   watchCard();
