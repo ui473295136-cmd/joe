@@ -30,15 +30,18 @@ test("daily popup shows each direct creditor separately instead of merging total
         },
       ],
       repayments: [],
-      profiles: [
-        { person: "瑞子", nickname: "清风" },
-        { person: "普子", nickname: "普哥" },
-        { person: "航子", nickname: "杭哥" },
-        { person: "辉子", nickname: "辉子" },
-      ],
+      profiles: [],
     };
     w.CWDailyFinance.setStateForTest(state);
-    assert.equal(w.CWDailyFinance.rowsFor("瑞子").length, 2);
+    const calculated = w.CWDailyFinance.rowsFor("瑞子");
+    assert.equal(calculated.length, 2);
+    assert.deepEqual(
+      calculated.map((x) => [x.person, x.ct]).sort(),
+      [
+        ["航子", 45000],
+        ["辉子", 45000],
+      ].sort(),
+    );
     await until(
       () =>
         d.querySelectorAll(
@@ -53,11 +56,12 @@ test("daily popup shows each direct creditor separately instead of merging total
       ),
     ];
     assert.equal(rows.length, 2);
-    const texts = rows.map((x) => x.textContent.replace(/\s+/g, " "));
-    assert.ok(texts.some((x) => x.includes("应付 辉子 ¥450.00")));
-    assert.ok(texts.some((x) => x.includes("应付 杭哥 ¥450.00")));
-    assert.equal(texts.some((x) => x.includes("¥900.00")), false);
-    assert.equal(new Set(rows.map((x) => x.dataset.cwFinancePerson)).size, 2);
+    assert.deepEqual(
+      rows.map((x) => x.dataset.cwFinancePerson).sort(),
+      ["航子", "辉子"].sort(),
+    );
+    assert.ok(rows.every((x) => x.textContent.includes("¥450.00")));
+    assert.equal(rows.some((x) => x.textContent.includes("¥900.00")), false);
   } finally {
     dom.window.close();
   }
