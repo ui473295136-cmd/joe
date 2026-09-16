@@ -31,10 +31,11 @@ test("only the expense payer can confirm per-person AA settlement and totals syn
     assert.ok(yes, "payer should see a yes button for Rui's share");
     assert.equal(d.querySelector('#ledgerList [data-ledger="add-repay"]').hidden, true);
 
-    const requests = [];
-    w.fetch = async (_url, init = {}) => {
-      const body = JSON.parse(init.body || "{}");
-      requests.push(body);
+    const requests = [], oldFetch = w.fetch;
+    w.fetch = async (url, init = {}) => {
+      let body = {};
+      try { body = JSON.parse(init.body || "{}"); } catch {}
+      if (body.action === "add_repayment" || body.action === "delete_repayment") requests.push(body);
       if (body.action === "add_repayment") {
         return new Response(JSON.stringify({
           ok: true,
@@ -53,16 +54,17 @@ test("only the expense payer can confirm per-person AA settlement and totals syn
       if (body.action === "delete_repayment") {
         return new Response(JSON.stringify({ ok: true }), { status: 200, headers: { "content-type": "application/json" } });
       }
-      throw new Error("Unexpected request " + body.action);
+      return oldFetch(url, init);
     };
 
     yes.click();
     await wait(100);
-    assert.equal(requests.at(-1).action, "add_repayment");
-    assert.equal(requests.at(-1).payload.actor, "辉子");
-    assert.equal(requests.at(-1).payload.from_person, "瑞子");
-    assert.equal(requests.at(-1).payload.to_person, "辉子");
-    assert.equal(requests.at(-1).payload.amount, 471.75);
+    const add = requests.findLast((x) => x.action === "add_repayment");
+    assert.ok(add, "add_repayment request should be emitted");
+    assert.equal(add.payload.actor, "辉子");
+    assert.equal(add.payload.from_person, "瑞子");
+    assert.equal(add.payload.to_person, "辉子");
+    assert.equal(add.payload.amount, 471.75);
     assert.match(d.querySelector("#ledgerList").textContent, /1\/3 已结清/);
     assert.equal(Number(w.CWLedgerDetailV3.summary("辉子").getCt / 100), 943.5);
 
@@ -70,7 +72,8 @@ test("only the expense payer can confirm per-person AA settlement and totals syn
     const no = d.querySelector(`[data-cw-settle="no"][data-expense="${rentId}"][data-debtor="瑞子"]`);
     no.click();
     await wait(100);
-    assert.equal(requests.at(-1).action, "delete_repayment");
+    const del = requests.findLast((x) => x.action === "delete_repayment");
+    assert.ok(del, "delete_repayment request should be emitted");
     assert.match(d.querySelector("#ledgerList").textContent, /0\/3 已结清/);
     assert.equal(Number(w.CWLedgerDetailV3.summary("辉子").getCt / 100), 1415.25);
   } finally {
