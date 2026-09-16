@@ -30,7 +30,7 @@
     const scripts = ["./offline-v1.js?v=1", "./avatars.js?v=7"];
     if (window.CWSession.qa) scripts.push("./qa-mock.js?v=3");
     scripts.push("./geo-throttle.js?v=6");
-    if (window.CWSession.isGuest?.()) scripts.push("./guest-mode-v1.js?v=1");
+    if (window.CWSession.isGuest?.()) scripts.push("./guest-mode-v1.js?v=2");
     scripts.push(
       "./app-v4.js?v=4",
       "./ledger-detail-v3.js?v=1",
