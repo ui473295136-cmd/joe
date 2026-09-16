@@ -77,6 +77,7 @@ html.cw-guest-mode .ledger-item{cursor:default}
     "[data-driver-edit]",
     "[data-driver-delete]",
   ].join(",");
+  let ledgerRetry = 0;
 
   function toast(text) {
     const t = document.querySelector("#toast");
@@ -117,7 +118,7 @@ html.cw-guest-mode .ledger-item{cursor:default}
   }
   function renderMoneyOverview() {
     const title = [...document.querySelectorAll("#view-me h2")].find((x) =>
-      /账本汇总|共享账本/.test(x.textContent || ""),
+      /账本汇总|共享账本|四人账本概览/.test(x.textContent || ""),
     );
     const card = title?.closest(".card");
     if (!card || !window.CWLedgerV2?.summary) return;
@@ -136,7 +137,16 @@ html.cw-guest-mode .ledger-item{cursor:default}
   }
   function forceAllLedger() {
     const all = document.querySelector('[data-ledgerview="all"]');
-    if (all && !all.classList.contains("on")) all.click();
+    if (all?.classList.contains("on")) {
+      ledgerRetry = 0;
+      return true;
+    }
+    if (all) all.click();
+    if (ledgerRetry < 30) {
+      ledgerRetry++;
+      setTimeout(forceAllLedger, 100);
+    }
+    return false;
   }
   function applyReadOnlyCopy() {
     ensureBanner();
@@ -153,7 +163,7 @@ html.cw-guest-mode .ledger-item{cursor:default}
     if (sub) sub.textContent = "访客模式 · 四人实时数据";
     if (meTitle) meTitle.textContent = "共享账本";
     if (meP) meP.textContent = "只读查看全部账单与四人结算，不可新增、修改或删除";
-    if (nav) nav.innerHTML = '<span>¥</span>账本';
+    if (nav && !/账本/.test(nav.textContent || "")) nav.innerHTML = '<span>¥</span>账本';
     if (gps) gps.textContent = "访客只读";
     if (place && /等待定位|请允许/.test(place.textContent || ""))
       place.textContent = "查看成员实时信息";
@@ -180,15 +190,28 @@ html.cw-guest-mode .ledger-item{cursor:default}
     "click",
     (e) => {
       const target = e.target.closest?.(mutatingSelector);
-      if (!target) return;
-      e.preventDefault();
-      e.stopImmediatePropagation();
-      toast("访客模式只能查看，不能新增、修改、删除或确认");
+      if (target) {
+        e.preventDefault();
+        e.stopImmediatePropagation();
+        toast("访客模式只能查看，不能新增、修改、删除或确认");
+        return;
+      }
+      if (e.target.closest?.('#bottomNav button[data-view="me"]')) {
+        ledgerRetry = 0;
+        setTimeout(forceAllLedger, 40);
+      }
     },
     true,
   );
-  window.addEventListener("cw:state", () => setTimeout(applyReadOnlyCopy, 20));
+  window.addEventListener("cw:state", () => {
+    ledgerRetry = 0;
+    setTimeout(applyReadOnlyCopy, 20);
+  });
   window.addEventListener("cw:profiles", () => setTimeout(applyReadOnlyCopy, 20));
+  window.addEventListener("load", () => {
+    ledgerRetry = 0;
+    setTimeout(forceAllLedger, 120);
+  });
   new MutationObserver(() => {
     clearTimeout(window.__cwGuestPaint);
     window.__cwGuestPaint = setTimeout(applyReadOnlyCopy, 25);
@@ -198,6 +221,7 @@ html.cw-guest-mode .ledger-item{cursor:default}
   else applyReadOnlyCopy();
   setInterval(() => {
     if (!document.hidden) {
+      forceAllLedger();
       document.dispatchEvent(new Event("visibilitychange"));
       window.dispatchEvent(
         new CustomEvent("cw:sync-pulse", {
