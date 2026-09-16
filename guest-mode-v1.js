@@ -5,6 +5,8 @@
   const TEAM = ["瑞子", "普子", "航子", "辉子"];
   document.documentElement.classList.add("cw-guest-mode");
   window.CWGuest = { active: true, readOnly: true };
+  let latestState = null,
+    ledgerRetry = 0;
 
   try {
     const g = navigator.geolocation;
@@ -54,7 +56,8 @@ html.cw-guest-mode #personalTips{display:none!important}
 html.cw-guest-mode #settlementLines,html.cw-guest-mode #meMoney{display:none!important}
 html.cw-guest-mode .ledger-item{cursor:default}
 .cw-guest-money{display:grid;gap:8px;margin:10px 0}.cw-guest-money-row{display:grid;grid-template-columns:minmax(70px,1fr) repeat(2,minmax(82px,auto));gap:8px;align-items:center;padding:10px 11px;border:1px solid #dfe9eb;border-radius:12px;background:#fbfdfd}.cw-guest-money-row b{font-size:13px;color:#173f50}.cw-guest-money-row span{font-size:11px;color:#6d838c;text-align:right}.cw-guest-money-row strong{color:#0b6078;font-size:12px}
-@media(max-width:420px){.cw-guest-banner{justify-content:space-between}.cw-guest-banner span{display:none}.cw-guest-money-row{grid-template-columns:1fr 1fr}.cw-guest-money-row b{grid-column:1/-1}.cw-guest-money-row span{text-align:left}}
+.cw-guest-pos-list{display:grid;gap:8px}.cw-guest-pos{display:grid;grid-template-columns:42px 1fr auto;gap:10px;align-items:center;padding:10px;border:1px solid #dfe9eb;border-radius:12px;background:#fbfdfd}.cw-guest-pos .avatar{width:42px;height:42px;border-radius:50%;display:grid;place-items:center;background:#dcecf1 center/cover no-repeat;font-weight:900}.cw-guest-pos b{display:block;font-size:13px;color:#173f50}.cw-guest-pos small{display:block;margin-top:3px;font-size:10px;color:#748991;line-height:1.45}.cw-guest-pos em{font-style:normal;font-size:10px;font-weight:900;padding:5px 7px;border-radius:999px;background:#eef6f5;color:#176c62}.cw-guest-pos.stale em{background:#f2f3f3;color:#7f8c90}.cw-guest-pos-empty{padding:12px;border-radius:12px;background:#f6f9fa;color:#71858d;font-size:11px}
+@media(max-width:420px){.cw-guest-banner{justify-content:space-between}.cw-guest-banner span{display:none}.cw-guest-money-row{grid-template-columns:1fr 1fr}.cw-guest-money-row b{grid-column:1/-1}.cw-guest-money-row span{text-align:left}.cw-guest-pos{grid-template-columns:38px 1fr}.cw-guest-pos em{grid-column:2;justify-self:start}.cw-guest-pos .avatar{width:38px;height:38px}}
 `;
   document.head.appendChild(style);
 
@@ -77,7 +80,6 @@ html.cw-guest-mode .ledger-item{cursor:default}
     "[data-driver-edit]",
     "[data-driver-delete]",
   ].join(",");
-  let ledgerRetry = 0;
 
   function toast(text) {
     const t = document.querySelector("#toast");
@@ -115,6 +117,53 @@ html.cw-guest-mode .ledger-item{cursor:default}
   }
   function name(p) {
     return window.CWProfiles?.get?.(p)?.nickname || p;
+  }
+  function ageText(ts) {
+    const t = Date.parse(ts || "");
+    if (!Number.isFinite(t)) return "暂无位置更新";
+    const sec = Math.max(0, Math.floor((Date.now() - t) / 1000));
+    if (sec < 15) return "刚刚更新";
+    if (sec < 60) return `${sec}秒前更新`;
+    if (sec < 3600) return `${Math.floor(sec / 60)}分钟前更新`;
+    return `${Math.floor(sec / 3600)}小时前更新`;
+  }
+  function renderTeamPositions() {
+    const mapCard = document.querySelector("#mapCard");
+    if (!mapCard) return;
+    let card = document.querySelector("#cwGuestPositions");
+    if (!card) {
+      card = document.createElement("section");
+      card.id = "cwGuestPositions";
+      card.className = "card";
+      card.innerHTML =
+        '<div class="section-head"><div><span class="eyebrow">实时位置</span><h2>四个人的位置更新</h2><p class="muted">直接读取成员端最新共享位置，访客本身不上传位置</p></div><span class="cw-guest-pill">只读</span></div><div class="cw-guest-pos-list" id="cwGuestPosList"></div>';
+      mapCard.insertAdjacentElement("afterend", card);
+    }
+    const positions = latestState?.person_positions || [],
+      list = card.querySelector("#cwGuestPosList");
+    if (!list) return;
+    list.innerHTML = TEAM.map((p) => {
+      const pos = positions
+          .filter((x) => x.person === p)
+          .sort(
+            (a, b) =>
+              Date.parse(b.updated_at || b.created_at || 0) -
+              Date.parse(a.updated_at || a.created_at || 0),
+          )[0],
+        t = Date.parse(pos?.updated_at || pos?.created_at || ""),
+        fresh = Number.isFinite(t) && Date.now() - t < 2 * 60 * 1000,
+        lat = Number(pos?.lat),
+        lon = Number(pos?.lon),
+        coords =
+          Number.isFinite(lat) && Number.isFinite(lon)
+            ? `${lat.toFixed(5)}, ${lon.toFixed(5)}`
+            : "暂未共享位置";
+      return `<div class="cw-guest-pos ${fresh ? "" : "stale"}"><div class="avatar" data-profile-avatar="${p}">${p[0]}</div><div><b>${name(p)}</b><small>${coords}<br>${ageText(pos?.updated_at || pos?.created_at)}</small></div><em>${fresh ? "实时" : pos ? "最近位置" : "暂无"}</em></div>`;
+    }).join("");
+    TEAM.forEach((p) => {
+      const el = list.querySelector(`[data-profile-avatar="${p}"]`);
+      window.CWProfiles?.paintAvatar?.(el, p);
+    });
   }
   function renderMoneyOverview() {
     const title = [...document.querySelectorAll("#view-me h2")].find((x) =>
@@ -174,6 +223,7 @@ html.cw-guest-mode .ledger-item{cursor:default}
       document.querySelector("#editOverlay")?.classList.remove("show");
     forceAllLedger();
     renderMoneyOverview();
+    renderTeamPositions();
   }
 
   document.addEventListener(
@@ -203,7 +253,8 @@ html.cw-guest-mode .ledger-item{cursor:default}
     },
     true,
   );
-  window.addEventListener("cw:state", () => {
+  window.addEventListener("cw:state", (e) => {
+    if (e.detail?.state) latestState = e.detail.state;
     ledgerRetry = 0;
     setTimeout(applyReadOnlyCopy, 20);
   });
@@ -222,6 +273,7 @@ html.cw-guest-mode .ledger-item{cursor:default}
   setInterval(() => {
     if (!document.hidden) {
       forceAllLedger();
+      renderTeamPositions();
       document.dispatchEvent(new Event("visibilitychange"));
       window.dispatchEvent(
         new CustomEvent("cw:sync-pulse", {
