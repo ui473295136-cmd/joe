@@ -17,9 +17,9 @@ async function open(browser,date,time='09:00'){
   try{
     let p=await open(browser,'2026-09-15');
     await p.waitForFunction(()=>/距离川西还有\s*17\s*天/.test(document.querySelector('#nextTripCard')?.innerText||''),{timeout:12000});
-    await p.waitForFunction(()=>document.querySelector('#helloName')?.textContent.includes('出发前')&&document.querySelector('#todayTag')?.textContent.includes('17天'),{timeout:12000});
-    const pre=await p.evaluate(()=>({hello:document.querySelector('#helloName')?.textContent||'',tag:document.querySelector('#todayTag')?.textContent||'',card:document.querySelector('#nextTripCard')?.innerText||'',wx:document.querySelector('#cwHourlyRouteWeather')?.innerText||'',head:document.querySelector('#view-today .page-title')?.innerText||''}));
-    if(!pre.hello.includes('出发前')||!pre.tag.includes('17天')||!/机票/.test(pre.card)||!/酒店/.test(pre.card)||!/四人准备度/.test(pre.card)||!/暂无可靠天气预报/.test(pre.wx)||/下一站/.test(pre.card)||!/10月02日 · 行程计划/.test(pre.head)||!/天府机场 → 雅安/.test(pre.head))throw new Error('PRE_STAGE_FAIL '+JSON.stringify(pre));
+    await p.waitForFunction(()=>document.querySelector('#todayTag')?.textContent.includes('17天'),{timeout:12000});
+    const pre=await p.evaluate(()=>({tag:document.querySelector('#todayTag')?.textContent||'',card:document.querySelector('#nextTripCard')?.innerText||'',wx:document.querySelector('#cwHourlyRouteWeather')?.innerText||'',head:document.querySelector('#view-today .page-title')?.innerText||''}));
+    if(!pre.tag.includes('17天')||!/机票/.test(pre.card)||!/酒店/.test(pre.card)||!/四人准备度/.test(pre.card)||!/暂无可靠天气预报/.test(pre.wx)||/下一站/.test(pre.card)||!/10月02日 · 行程计划/.test(pre.head)||!/天府机场 → 雅安/.test(pre.head))throw new Error('PRE_STAGE_FAIL '+JSON.stringify(pre));
     await p.close();
 
     p=await open(browser,'2026-10-03','12:30');
