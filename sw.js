@@ -1,4 +1,4 @@
-const CACHE = "chuanxi-2026-v52-profile-live";
+const CACHE = "chuanxi-2026-v53-daily-pairwise";
 const RUNTIME = "chuanxi-2026-runtime-v3";
 const CORE = [
   "./",
@@ -31,6 +31,7 @@ const CORE = [
   "./itinerary-live-v1.js",
   "./daily-card-v1.css",
   "./daily-card-v1.js",
+  "./daily-finance-pairwise-v1.js",
   "./travel-assist-v1.css",
   "./travel-assist-v1.js",
   "./travel-assist-dayfix-v1.js",
