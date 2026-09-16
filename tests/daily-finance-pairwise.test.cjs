@@ -33,15 +33,15 @@ test("daily popup shows each direct creditor separately instead of merging total
       profiles: [],
     };
     w.CWDailyFinance.setStateForTest(state);
-    const calculated = w.CWDailyFinance.rowsFor("瑞子");
+    const calculated = Array.from(w.CWDailyFinance.rowsFor("瑞子"), (x) => [
+      String(x.person),
+      Number(x.ct),
+    ]).sort((a, b) => a[0].localeCompare(b[0]));
     assert.equal(calculated.length, 2);
-    assert.deepEqual(
-      calculated.map((x) => [x.person, x.ct]).sort(),
-      [
-        ["航子", 45000],
-        ["辉子", 45000],
-      ].sort(),
-    );
+    assert.equal(JSON.stringify(calculated), JSON.stringify([
+      ["航子", 45000],
+      ["辉子", 45000],
+    ].sort((a, b) => a[0].localeCompare(b[0]))));
     await until(
       () =>
         d.querySelectorAll(
