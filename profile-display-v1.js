@@ -35,7 +35,7 @@
   };
   function excludedText(node) {
     const p = node?.parentElement;
-    return !p || !!p.closest("script,style,textarea,input,select,option,[contenteditable=true],#nicknameInput,#roleInput");
+    return !p || !!p.closest("script,style,textarea,input,select,option,[contenteditable=true],[data-stable-identity],.cw-itin-admin-note,#nicknameInput,#roleInput");
   }
   function renderText(node, acceptExternal = false) {
     if (!node || node.nodeType !== Node.TEXT_NODE || excludedText(node)) return;
@@ -58,7 +58,7 @@
     textRendered.set(node, next);
   }
   function renderAttrs(el, acceptExternal = false) {
-    if (!(el instanceof Element) || el.matches("input,textarea,select,option")) return;
+    if (!(el instanceof Element) || el.matches("input,textarea,select,option") || el.closest("[data-stable-identity],.cw-itin-admin-note")) return;
     let map = attrTemplate.get(el);
     if (!map) {
       map = new Map();
