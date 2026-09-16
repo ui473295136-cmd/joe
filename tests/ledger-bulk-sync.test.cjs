@@ -2,7 +2,7 @@ const { test } = require("node:test");
 const assert = require("node:assert/strict");
 const { app, wait, until } = require("./helpers.cjs");
 
-test("payer gets one-click approval and all ledger users get one-click read", async () => {
+test("payer gets one-click approval and all ledger users get read-all", async () => {
   const { dom, w, d } = await app("辉子");
   try {
     await until(() => !!d.querySelector("#cwApproveAllBtn") && !!w.CWSyncHub);
@@ -10,7 +10,7 @@ test("payer gets one-click approval and all ledger users get one-click read", as
     const approve = d.querySelector("#cwApproveAllBtn");
     const read = d.querySelector("#cwAckAllBtn");
     assert.match(approve.textContent, /一键审批/);
-    assert.match(read.textContent, /一键已读/);
+    assert.match(read.textContent, /全部已读/);
     assert.equal(approve.disabled, false);
     assert.equal(read.disabled, false);
 
@@ -34,6 +34,39 @@ test("payer gets one-click approval and all ledger users get one-click read", as
     assert.equal(calls[0].action, "settle_all");
     await until(() => /无需审批/.test(d.querySelector("#cwApproveAllBtn")?.textContent || ""));
     await wait(220);
+  } finally {
+    dom.window.close();
+  }
+});
+
+test("unread ledger messages are highlighted, jumpable, and normalize after read-all", async () => {
+  const { dom, w, d } = await app("瑞子");
+  try {
+    await until(() => !!w.CWLedgerUnread && !!d.querySelector("#cwAckAllBtn"));
+    await until(() => d.querySelectorAll("#ledgerList .cw-ledger-unread").length === 3);
+
+    const unread = [...d.querySelectorAll("#ledgerList .cw-ledger-unread")];
+    assert.equal(unread.length, 3);
+    assert.ok(unread.every((x) => !!x.querySelector(".cw-unread-flag")));
+    assert.equal(d.querySelector("#pendingBadge")?.textContent, "3笔未读");
+    assert.match(d.querySelector("#cwAckAllBtn")?.textContent || "", /全部已读 3笔/);
+
+    let scrolled = false;
+    for (const item of unread) item.scrollIntoView = () => { scrolled = true; };
+    d.querySelector("#pendingBadge")?.click();
+    await until(() => scrolled || !!d.querySelector("#ledgerList .cw-unread-focus"));
+    assert.ok(
+      d.querySelector("#view-me")?.classList.contains("on"),
+      "clicking unread badge should open the personal ledger view",
+    );
+
+    d.querySelector("#cwAckAllBtn")?.click();
+    await until(() => d.querySelectorAll("#ledgerList .cw-ledger-unread").length === 0);
+    assert.equal(d.querySelector("#pendingBadge")?.textContent, "全部已读");
+    assert.equal(d.querySelector("#pendingBadge")?.classList.contains("cw-has-unread"), false);
+    assert.equal(d.querySelector("#cwAckAllBtn")?.disabled, true);
+    assert.match(d.querySelector("#cwAckAllBtn")?.textContent || "", /已全部读完/);
+    await wait(80);
   } finally {
     dom.window.close();
   }
