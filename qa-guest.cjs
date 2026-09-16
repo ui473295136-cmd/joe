@@ -11,6 +11,8 @@ const puppeteer = require("puppeteer-core");
   });
   try {
     const page = await browser.newPage();
+    const pageErrors=[];
+    page.on("pageerror",e=>pageErrors.push(e?.stack||String(e)));
     await page.goto(`${base}/app-v4.html?person=%E7%91%9E%E5%AD%90&guest=1&qa=1`, {
       waitUntil: "domcontentloaded",
       timeout: 15000,
@@ -80,7 +82,7 @@ const puppeteer = require("puppeteer-core");
       throw new Error("guest write guard did not block action");
     if (result.positions.length !== 4 || !result.positions.every((x) => /更新|位置/.test(x)))
       throw new Error("guest live positions are incomplete");
-    if (result.errors.length) throw new Error("guest runtime errors " + JSON.stringify(result.errors));
+    if (result.errors.length || pageErrors.length) throw new Error("guest runtime errors " + JSON.stringify({errors:result.errors,pageErrors}));
     console.log("GUEST_OK", JSON.stringify(result));
   } finally {
     await browser.close();
