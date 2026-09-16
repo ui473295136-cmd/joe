@@ -102,9 +102,9 @@
     script("./social-v1.js?v=2", "cw-social");
     script("./driver-fun-v2.js?v=1", "cw-driver-fun");
     script("./avatar-interactions-v1.js?v=1", "cw-avatar-play");
-    script("./trip-stage-v2.js?v=1", "cw-trip-stage");
+    script("./trip-stage-v2.js?v=2", "cw-trip-stage");
     script("./stage-tag-guard-v1.js?v=1", "cw-stage-tag-guard");
-    script("./itinerary-header-sync-v1.js?v=1", "cw-itinerary-heading");
+    script("./itinerary-header-sync-v1.js?v=2", "cw-itinerary-heading");
     script("./ledger-v2.js?v=2", "cw-ledger-v2");
     script("./trip-stage-card-guard-v1.js?v=1", "cw-stage-card-guard");
   }
