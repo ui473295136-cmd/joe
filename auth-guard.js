@@ -1,23 +1,51 @@
 (() => {
   "use strict";
-  const auth = window.CWSession;
+  const auth = window.CWSession,
+    qs = new URLSearchParams(location.search),
+    guest = qs.get("guest") === "1";
   const person =
-    new URLSearchParams(location.search).get("person") ||
-    localStorage.getItem("cw-person") ||
-    "";
+    qs.get("person") || localStorage.getItem("cw-person") || "";
   const login = () =>
-    location.replace(`./?person=${encodeURIComponent(person)}`);
+    location.replace(guest ? "./?guest=1" : `./?person=${encodeURIComponent(person)}`);
   const reveal = () => {
     document.documentElement.classList.add("cw-auth-ready");
+    if (guest) document.documentElement.classList.add("cw-guest-mode");
     window.__CW_AUTH_OK = true;
     window.dispatchEvent(new Event("cw-auth-ready"));
   };
   const setAdmin = () =>
     sessionStorage.setItem(
       "cw-admin",
-      person === "瑞子" || auth.get("瑞子") ? "1" : "0",
+      !guest && (person === "瑞子" || auth.get("瑞子")) ? "1" : "0",
     );
+  async function checkGuest() {
+    if (!auth) return login();
+    if (auth.qa) {
+      sessionStorage.setItem("cw-admin", "0");
+      reveal();
+      return;
+    }
+    let localSession = auth.get(auth.GUEST);
+    if (!localSession) {
+      try {
+        localSession = await auth.issueGuest();
+      } catch {
+        login();
+        return;
+      }
+    }
+    try {
+      const session = await auth.validate(auth.GUEST);
+      if (!session) return login();
+      auth.activateGuestShadow(session);
+      setAdmin();
+      reveal();
+    } catch {
+      login();
+    }
+  }
   async function check() {
+    if (guest) return checkGuest();
     if (!auth || !auth.PEOPLE.includes(person)) {
       location.replace("./");
       return;
@@ -41,7 +69,6 @@
       setAdmin();
       reveal();
     } catch {
-      // 无网络时，只要本机仍有未过期的登录记忆，就允许进入离线模式。
       if (auth.get(person)) {
         window.__CW_OFFLINE_AUTH = true;
         setAdmin();
@@ -59,9 +86,7 @@
         };
       };
       if (document.readyState === "loading")
-        document.addEventListener("DOMContentLoaded", showError, {
-          once: true,
-        });
+        document.addEventListener("DOMContentLoaded", showError, { once: true });
       else showError();
     }
   }
