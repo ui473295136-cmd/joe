@@ -23,40 +23,8 @@ test("payer gets one-click approval and all ledger users get one-click read", as
       try {
         body = JSON.parse(init.body || "{}");
       } catch {}
-      if (url.includes("/functions/v1/trip-ledger") && body.action === "settle_all") {
+      if (url.includes("/functions/v1/trip-ledger") && body.action === "settle_all")
         calls.push(body);
-        return new Response(
-          JSON.stringify({
-            ok: true,
-            count: 3,
-            amount: 262.5,
-            rows: [
-              {
-                id: "bulk-1",
-                expense_id: "qa-exp-3",
-                from_person: "瑞子",
-                to_person: "辉子",
-                amount: 87.5,
-              },
-              {
-                id: "bulk-2",
-                expense_id: "qa-exp-3",
-                from_person: "普子",
-                to_person: "辉子",
-                amount: 87.5,
-              },
-              {
-                id: "bulk-3",
-                expense_id: "qa-exp-3",
-                from_person: "航子",
-                to_person: "辉子",
-                amount: 87.5,
-              },
-            ],
-          }),
-          { status: 200, headers: { "content-type": "application/json" } },
-        );
-      }
       return raw(input, init);
     };
 
