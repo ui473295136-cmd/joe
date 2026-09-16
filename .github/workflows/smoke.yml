@@ -26,7 +26,7 @@ jobs:
           grep -q 'structured-clone-compat-v1.js?v=1' app-bootstrap.js
           grep -q 'itinerary-admin-v1.js?v=1' app-bootstrap.js
           grep -q 'itinerary-dynamic-guard-v1.js?v=2' app-bootstrap.js
-          grep -q 'guest-mode-v1.js?v=1' app-bootstrap.js
+          grep -q 'guest-mode-v1.js?v=2' app-bootstrap.js
           grep -q 'geo-throttle.js?v=6' app-bootstrap.js
           grep -q 'trip-stage-v2.js?v=2' geo-throttle.js
           grep -q 'itinerary-header-sync-v1.js?v=2' geo-throttle.js
