@@ -1,4 +1,4 @@
-const CACHE = "chuanxi-2026-v54-unread-ledger";
+const CACHE = "chuanxi-2026-v55-guest-readonly";
 const RUNTIME = "chuanxi-2026-runtime-v3";
 const CORE = [
   "./",
@@ -11,6 +11,7 @@ const CORE = [
   "./app-v4.html",
   "./app-v4.css",
   "./app-v4.js",
+  "./guest-mode-v1.js",
   "./ledger-detail-v3.js",
   "./ledger-settlement-v4.js",
   "./sync-hub-v1.js",
