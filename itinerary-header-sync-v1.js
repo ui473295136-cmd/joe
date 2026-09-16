@@ -1,28 +1,15 @@
 (()=>{
 'use strict';
-const DAYS=[
- {date:'2026-10-02',route:'天府机场 → 雅安',km:'185–195km',drive:'3.5–4小时'},
- {date:'2026-10-03',route:'雅安 → 泸定 → 康定 → 折多山 → 新都桥',km:'270–290km',drive:'6.5–8小时'},
- {date:'2026-10-04',route:'新都桥 → 塔公 → 八美 → 丹巴中路藏寨',km:'150–170km',drive:'4–5小时'},
- {date:'2026-10-05',route:'丹巴 → 小金 → 四姑娘山双桥沟',km:'110–130km',drive:'3–4小时'},
- {date:'2026-10-06',route:'四姑娘山 → 卧龙 → 映秀 → 都江堰 → 天府机场',km:'270–300km',drive:'8–10小时'},
- {date:'2026-10-07',route:'机场酒店 → 还车 → 航站楼',km:'5–20km',drive:'20–40分钟'}
-];
-const START=DAYS[0].date,END=DAYS[DAYS.length-1].date,$=s=>document.querySelector(s);
+const $=s=>document.querySelector(s);
+let timer=0,painting=false;
 function today(){return window.CWTripStageV2?.chinaDate?.()||new Date().toLocaleDateString('sv-SE',{timeZone:'Asia/Shanghai'})}
-function selectedIndex(){const n=Number($('#simpleItinerary .day-chip.on')?.dataset.day);return Number.isInteger(n)&&n>=0&&n<DAYS.length?n:0}
-function cnFull(date){const [,m,d]=date.split('-');return`${Number(m)}月${String(d).padStart(2,'0')}日`}
-function contextFor(date,i){const now=today();if(date===now)return{eyebrow:`旅途中 · Day ${i+1}`,label:'今日行程'};if(now<START)return{eyebrow:'行程计划',label:'行程计划'};if(now>END||date<now)return{eyebrow:'行程回顾',label:'行程回顾'};return{eyebrow:`后续 · Day ${i+1}`,label:'后续行程'}}
-function render(i=selectedIndex()){
- const d=DAYS[i],title=$('#view-today .page-title');if(!d||!title)return;
- const ctx=contextFor(d.date,i),ey=title.querySelector('.eyebrow'),h=title.querySelector('h1'),p=title.querySelector('p');
- const hText=`${cnFull(d.date)} · ${ctx.label}`,pText=`${d.route} | ${d.km} | 约${d.drive}`;
- if(ey&&ey.textContent!==ctx.eyebrow)ey.textContent=ctx.eyebrow;
- if(h&&h.textContent!==hText)h.textContent=hText;
- if(p&&p.textContent!==pText)p.textContent=pText;
- title.dataset.selectedDay=String(i+1);
- title.dataset.selectedDate=d.date;
-}
-function init(){const box=$('#simpleItinerary'),title=$('#view-today .page-title');if(!box||!title)return setTimeout(init,80);render();new MutationObserver(()=>queueMicrotask(()=>render())).observe(box,{childList:true,subtree:true,attributes:true,attributeFilter:['class']});document.addEventListener('click',e=>{const b=e.target.closest?.('#simpleItinerary [data-day]');if(!b)return;const i=Number(b.dataset.day);setTimeout(()=>render(i),0);setTimeout(()=>render(i),160)},true);window.addEventListener('focus',()=>render());document.addEventListener('visibilitychange',()=>{if(!document.hidden)render()});document.documentElement.classList.add('cw-itinerary-heading-ready')}
+function days(){try{return window.CWItinerary?.getDays?.()||[]}catch{return[]}}
+function selectedIndex(ds){const raw=$('#simpleItinerary .day-chip.on')?.dataset.day,n=Number(raw);if(Number.isInteger(n)&&n>=0&&n<ds.length)return n;const now=today(),i=ds.findIndex(x=>x.day_date===now);return i>=0?i:0}
+function cnFull(date){const [,m,d]=String(date||'').split('-');return m&&d?`${Number(m)}月${String(d).padStart(2,'0')}日`:String(date||'')}
+function fmt(m){m=Math.max(0,Math.round(Number(m||0)));return m<60?`${m}分钟`:`${Math.floor(m/60)}小时${m%60?`${m%60}分`:''}`}
+function contextFor(d,i,ds){const now=today(),first=ds[0]?.day_date,last=ds.at(-1)?.day_date;if(first&&now<first)return{eyebrow:'行程计划',label:'行程计划'};if(last&&now>last)return{eyebrow:'行程回顾',label:'行程回顾'};if(d.day_date===now)return{eyebrow:`旅途中 · Day ${i+1}`,label:'今日行程'};if(d.day_date<now)return{eyebrow:`回顾 · Day ${i+1}`,label:'已完成行程'};return{eyebrow:`后续 · Day ${i+1}`,label:'后续行程'}}
+function render(){if(painting)return;const ds=days(),title=$('#view-today .page-title');if(!ds.length||!title)return;painting=true;try{const i=selectedIndex(ds),d=ds[i];if(!d)return;const ctx=contextFor(d,i,ds),ey=title.querySelector('.eyebrow'),h=title.querySelector('h1'),p=title.querySelector('p'),hText=`${cnFull(d.day_date)} · ${ctx.label}`,pText=`${d.route_label||'路线未设置'}｜约 ${Number(d.distance_km||0).toFixed(1)}km｜驾驶约 ${fmt(d.drive_minutes)}｜住宿：${d.hotel_name||'未设置'}`;if(ey&&ey.textContent!==ctx.eyebrow)ey.textContent=ctx.eyebrow;if(h&&h.textContent!==hText)h.textContent=hText;if(p&&p.textContent!==pText)p.textContent=pText;title.dataset.selectedDay=String(i+1);title.dataset.selectedDate=String(d.day_date||'')}finally{painting=false}}
+function schedule(ms=30){clearTimeout(timer);timer=setTimeout(render,ms)}
+function init(){const wait=()=>{const box=$('#simpleItinerary'),title=$('#view-today .page-title');if(!box||!title||!window.CWItinerary)return setTimeout(wait,80);render();new MutationObserver(()=>schedule(20)).observe(box,{childList:true,subtree:true,attributes:true,attributeFilter:['class']});new MutationObserver(()=>{if(!painting)schedule(20)}).observe(title,{childList:true,subtree:true,characterData:true});window.addEventListener('cw:itinerary',()=>schedule(10));window.addEventListener('cw:sync-pulse',()=>schedule(40));window.addEventListener('focus',()=>schedule(20));document.addEventListener('visibilitychange',()=>{if(!document.hidden)schedule(20)});document.documentElement.classList.add('cw-itinerary-heading-ready')};wait()}
 if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',init,{once:true});else init();
 })();
