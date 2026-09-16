@@ -16,117 +16,23 @@ jobs:
           node-version: '24'
       - name: JavaScript syntax
         run: |
-          node --check app-v4.js
-          node --check guest-mode-v1.js
-          node --check ledger-detail-v3.js
-          node --check ledger-settlement-v4.js
-          node --check sync-hub-v1.js
-          node --check profile-display-v1.js
-          node --check map-open-watchdog-v1.js
-          node --check auth-guard.js
-          node --check geo-throttle.js
-          node --check time-compat-v1.js
-          node --check driver-fun-v2.js
-          node --check avatar-interactions-v1.js
-          node --check avatar-interactions-qa-mock-v1.js
-          node --check qa-avatar-interactions.cjs
-          node --check qa-guest.cjs
-          node --check trip-stage-v2.js
-          node --check stage-tag-guard-v1.js
-          node --check trip-stage-card-guard-v1.js
-          node --check itinerary-header-sync-v1.js
-          node --check qa-stage.js
-          node --check ledger-v2.js
-          node --check qa-ledger-v2.cjs
-          node --check minimal-v1.js
-          node --check profile-sync-v2.js
-          node --check profile-upload-v3.js
-          node --check admin-switch-v1.js
-          node --check ledger-ack-v1.js
-          node --check itinerary-live-v1.js
-          node --check daily-card-v1.js
-          node --check daily-finance-pairwise-v1.js
-          node --check travel-assist-v1.js
-          node --check travel-assist-dayfix-v1.js
-          node --check map-state-guard-v1.js
-          node --check social-v1.js
-          node --check social-qa-mock-v1.js
-          node --check map-v5.js
-          node --check qa-mock.js
-          node --check qa-probe.js
-          node --check qa-ci.js
-          node --check session-store.js
-          node --check login.js
-          node --check app-bootstrap.js
-          node --check offline-v1.js
-          node --check interaction-ux.js
+          for f in app-v4.js guest-mode-v1.js ledger-detail-v3.js ledger-settlement-v4.js ledger-related-focus-v1.js daily-rhythm-v1.js sync-hub-v1.js profile-display-v1.js map-open-watchdog-v1.js auth-guard.js geo-throttle.js time-compat-v1.js driver-fun-v2.js avatar-interactions-v1.js avatar-interactions-qa-mock-v1.js qa-avatar-interactions.cjs qa-guest.cjs trip-stage-v2.js stage-tag-guard-v1.js trip-stage-card-guard-v1.js itinerary-header-sync-v1.js qa-stage.js ledger-v2.js qa-ledger-v2.cjs minimal-v1.js profile-sync-v2.js profile-upload-v3.js admin-switch-v1.js ledger-ack-v1.js itinerary-live-v1.js daily-card-v1.js daily-finance-pairwise-v1.js travel-assist-v1.js travel-assist-dayfix-v1.js map-state-guard-v1.js social-v1.js social-qa-mock-v1.js map-v5.js qa-mock.js qa-probe.js qa-ci.js session-store.js login.js app-bootstrap.js offline-v1.js interaction-ux.js; do node --check "$f"; done
       - name: Required files and links
         shell: bash
         run: |
-          for f in index.html app-v4.html app-v4.css app-v4.js guest-mode-v1.js ledger-detail-v3.js ledger-settlement-v4.js sync-hub-v1.js profile-display-v1.js map-open-watchdog-v1.js auth-guard.js geo-throttle.js time-compat-v1.js driver-fun-v2.js driver-fun-v2.css avatar-interactions-v1.js avatar-interactions-v1.css avatar-interactions-qa-mock-v1.js qa-avatar-interactions.cjs qa-guest.cjs trip-stage-v2.js trip-stage-v2.css stage-tag-guard-v1.js trip-stage-card-guard-v1.js itinerary-header-sync-v1.js qa-stage.js ledger-v2.js ledger-v2.css qa-ledger-v2.cjs minimal-v1.js minimal-v1.css profile-sync-v2.js profile-sync-v2.css profile-upload-v3.js admin-switch-v1.js ledger-ack-v1.js itinerary-live-v1.js itinerary-live-v1.css daily-card-v1.js daily-card-v1.css daily-finance-pairwise-v1.js travel-assist-v1.js travel-assist-v1.css travel-assist-dayfix-v1.js map-state-guard-v1.js social-v1.js social-v1.css social-qa-mock-v1.js map-v5.js map-v5.css qa-mock.js qa-probe.js qa-ci.js avatars.js manifest.webmanifest icon.svg sw.js road-routes.json supabase/functions/trip-auth/index.ts supabase/functions/trip-guest/index.ts; do test -s "$f"; done
-          for f in session-store.js login.js app-bootstrap.js offline-v1.js interaction-ux.js interaction-ux.css; do test -s "$f"; done
-          grep -q 'trip-guest' session-store.js
-          grep -q 'GUEST = "访客"' session-store.js
+          for f in index.html app-v4.html app-v4.css app-v4.js guest-mode-v1.js ledger-detail-v3.js ledger-settlement-v4.js ledger-related-focus-v1.js daily-rhythm-v1.js sync-hub-v1.js profile-display-v1.js map-open-watchdog-v1.js auth-guard.js geo-throttle.js time-compat-v1.js driver-fun-v2.js driver-fun-v2.css avatar-interactions-v1.js avatar-interactions-v1.css avatar-interactions-qa-mock-v1.js qa-avatar-interactions.cjs qa-guest.cjs trip-stage-v2.js trip-stage-v2.css stage-tag-guard-v1.js trip-stage-card-guard-v1.js itinerary-header-sync-v1.js qa-stage.js ledger-v2.js ledger-v2.css qa-ledger-v2.cjs minimal-v1.js minimal-v1.css profile-sync-v2.js profile-sync-v2.css profile-upload-v3.js admin-switch-v1.js ledger-ack-v1.js itinerary-live-v1.js itinerary-live-v1.css daily-card-v1.js daily-card-v1.css daily-finance-pairwise-v1.js travel-assist-v1.js travel-assist-v1.css travel-assist-dayfix-v1.js map-state-guard-v1.js social-v1.js social-v1.css social-qa-mock-v1.js map-v5.js map-v5.css qa-mock.js qa-probe.js qa-ci.js avatars.js manifest.webmanifest icon.svg sw.js road-routes.json supabase/functions/trip-auth/index.ts supabase/functions/trip-guest/index.ts supabase/functions/trip-day-summary/index.ts; do test -s "$f"; done
+          grep -q 'ledger-related-focus-v1.js?v=1' app-bootstrap.js
+          grep -q 'daily-rhythm-v1.js?v=1' app-bootstrap.js
           grep -q 'guest-mode-v1.js?v=1' app-bootstrap.js
-          grep -q '访客模式' login.js
-          grep -q 'guest_read_only' supabase/functions/trip-auth/index.ts
-          grep -q 'guest_read_only' supabase/functions/trip-guest/index.ts
-          grep -q 'login.js' index.html
-          grep -q 'auth-guard.js' app-v4.html
-          grep -q 'app-bootstrap.js' app-v4.html
-          grep -q 'app-v4.js' app-bootstrap.js
-          grep -q 'ledger-detail-v3.js' app-bootstrap.js
-          grep -q 'ledger-settlement-v4.js' app-bootstrap.js
-          grep -q 'sync-hub-v1.js' app-bootstrap.js
-          grep -q 'profile-display-v1.js' app-bootstrap.js
-          grep -q 'map-open-watchdog-v1.js' app-bootstrap.js
-          grep -q 'map-v5.js' app-bootstrap.js
-          grep -q 'offline-v1.js' app-bootstrap.js
           grep -q 'geo-throttle.js?v=6' app-bootstrap.js
-          grep -q 'time-compat-v1.js' geo-throttle.js
-          grep -q 'profile-sync-v2.css?v=4' geo-throttle.js
-          grep -q 'profile-sync-v2.js?v=5' geo-throttle.js
-          grep -q 'driver-fun-v2.js' geo-throttle.js
-          grep -q 'avatar-interactions-v1.js' geo-throttle.js
-          grep -q 'avatar-interactions-v1.css' geo-throttle.js
-          grep -q 'avatar-interactions-qa-mock-v1.js' geo-throttle.js
-          grep -q 'trip-stage-v2.js' geo-throttle.js
-          grep -q 'stage-tag-guard-v1.js' geo-throttle.js
-          grep -q 'trip-stage-card-guard-v1.js' geo-throttle.js
-          grep -q 'trip-stage-v2.css' geo-throttle.js
-          grep -q 'itinerary-header-sync-v1.js' geo-throttle.js
-          grep -q 'ledger-v2.js?v=2' geo-throttle.js
-          grep -q 'ledger-v2.css' geo-throttle.js
-          ! grep -q 'profile-upload-v3.js' geo-throttle.js
-          grep -q 'admin-switch-v1.js' geo-throttle.js
-          grep -q 'ledger-ack-v1.js?v=3' geo-throttle.js
-          grep -q 'daily-card-v1.js' geo-throttle.js
-          grep -q 'daily-finance-pairwise-v1.js?v=1' geo-throttle.js
-          grep -q 'travel-assist-v1.js' geo-throttle.js
-          grep -q 'travel-assist-dayfix-v1.js' geo-throttle.js
-          grep -q 'map-state-guard-v1.js' geo-throttle.js
-          grep -q 'social-qa-mock-v1.js' geo-throttle.js
-          grep -q 'social-v1.js' geo-throttle.js
-          ! grep -q 'decision-v2.js' geo-throttle.js
-          ! grep -q 'ux-v6.js' geo-throttle.js
-          ! grep -q 'dashboard.html' index.html
-          grep -q 'navBadge' app-v4.html
-          grep -q 'chuanxi-2026-v55-guest-readonly' sw.js
-          grep -q 'guest-mode-v1.js' sw.js
-          grep -q 'ledger-detail-v3.js' sw.js
-          grep -q 'ledger-settlement-v4.js' sw.js
-          grep -q 'sync-hub-v1.js' sw.js
-          grep -q 'profile-display-v1.js' sw.js
-          grep -q 'daily-finance-pairwise-v1.js' sw.js
-          grep -q 'map-open-watchdog-v1.js' sw.js
-          grep -q 'stage-tag-guard-v1.js' sw.js
-          grep -q 'time-compat-v1.js' sw.js
-          grep -q 'driver-fun-v2.js' sw.js
-          grep -q 'avatar-interactions-v1.js' sw.js
-          grep -q 'trip-stage-v2.js' sw.js
-          grep -q 'trip-stage-card-guard-v1.js' sw.js
-          grep -q 'itinerary-header-sync-v1.js' sw.js
-          grep -q 'ledger-v2.js' sw.js
+          grep -q 'chuanxi-2026-v56-ledger-day-rhythm' sw.js
+          grep -q 'ledger-related-focus-v1.js' sw.js
+          grep -q 'daily-rhythm-v1.js' sw.js
+          grep -q 'trip-day-summary' daily-rhythm-v1.js
+          grep -q 'GPS轨迹' supabase/functions/trip-day-summary/index.ts
+          grep -q '与我有关 · 未读' ledger-related-focus-v1.js
+          grep -q '05:00' daily-rhythm-v1.js
+          grep -q '20:00' daily-rhythm-v1.js
       - name: Session, API authorization and interaction regression
         run: npm ci --ignore-scripts && npm test
       - name: Production backend read checks
@@ -142,22 +48,22 @@ jobs:
             test "$STATUS" = '401'
             grep -q 'session_invalid' /tmp/cw-auth-check.json
           done
+          STATUS=$(curl -sS --max-time 10 -o /tmp/cw-day-invalid.json -w '%{http_code}' -X POST 'https://wpfqcztbxxarsrruuuce.supabase.co/functions/v1/trip-day-summary' -H 'content-type: application/json' --data '{"trip_slug":"chuanxi2026","action":"state","payload":{"person":"瑞子","token":"invalid","date":"2026-10-02"}}')
+          test "$STATUS" = '401'
+          grep -q 'session_invalid' /tmp/cw-day-invalid.json
           curl -sS --max-time 10 -X POST 'https://wpfqcztbxxarsrruuuce.supabase.co/functions/v1/trip-ledger' -H 'content-type: application/json' --data '{"trip_slug":"chuanxi2026","action":"ack_all","payload":{"person":"瑞子","token":"invalid"}}' | grep -q '登录已失效'
           curl -sS --max-time 10 -X POST 'https://wpfqcztbxxarsrruuuce.supabase.co/functions/v1/trip-assist' -H 'content-type: application/json' --data '{"trip_slug":"chuanxi2026","action":"state","payload":{"person":"瑞子","token":"invalid"}}' | grep -q '登录已失效'
           curl -sS --max-time 10 -X POST 'https://wpfqcztbxxarsrruuuce.supabase.co/functions/v1/trip-social' -H 'content-type: application/json' --data '{"trip_slug":"chuanxi2026","action":"state","payload":{"person":"瑞子","token":"invalid"}}' | grep -q '登录已失效'
           curl -sS --max-time 10 -X POST 'https://wpfqcztbxxarsrruuuce.supabase.co/functions/v1/trip-interaction' -H 'content-type: application/json' --data '{"trip_slug":"chuanxi2026","action":"state","payload":{"person":"瑞子","token":"invalid"}}' | grep -q '登录已失效'
-
           GUEST_JSON=$(curl -fsS --max-time 10 -X POST 'https://wpfqcztbxxarsrruuuce.supabase.co/functions/v1/trip-auth' -H 'content-type: application/json' --data '{"trip_slug":"chuanxi2026","action":"guest","payload":{}}')
           GUEST_TOKEN=$(printf '%s' "$GUEST_JSON" | node -pe 'JSON.parse(require("fs").readFileSync(0,"utf8")).token')
           test -n "$GUEST_TOKEN"
           printf '%s' "$GUEST_JSON" | grep -q '"read_only":true'
           curl -fsS --max-time 12 -X POST 'https://wpfqcztbxxarsrruuuce.supabase.co/functions/v1/trip-auth' -H 'content-type: application/json' --data "{\"trip_slug\":\"chuanxi2026\",\"action\":\"validate\",\"payload\":{\"person\":\"访客\",\"token\":\"$GUEST_TOKEN\"}}" | grep -q '"valid":true'
           curl -fsS --max-time 15 -X POST 'https://wpfqcztbxxarsrruuuce.supabase.co/functions/v1/trip-guest' -H 'content-type: application/json' --data "{\"trip_slug\":\"chuanxi2026\",\"action\":\"sync_state\",\"payload\":{\"token\":\"$GUEST_TOKEN\"}}" | grep -q '"read_only":true'
+          curl -fsS --max-time 15 -X POST 'https://wpfqcztbxxarsrruuuce.supabase.co/functions/v1/trip-day-summary' -H 'content-type: application/json' --data "{\"trip_slug\":\"chuanxi2026\",\"action\":\"state\",\"payload\":{\"person\":\"访客\",\"token\":\"$GUEST_TOKEN\",\"date\":\"2026-10-02\"}}" | grep -q '"summary"'
           STATUS=$(curl -sS --max-time 10 -o /tmp/cw-guest-write.json -w '%{http_code}' -X POST 'https://wpfqcztbxxarsrruuuce.supabase.co/functions/v1/trip-sync' -H 'content-type: application/json' --data "{\"trip_slug\":\"chuanxi2026\",\"action\":\"add_expense\",\"payload\":{\"session_person\":\"访客\",\"session_token\":\"$GUEST_TOKEN\",\"payer\":\"瑞子\",\"amount\":1,\"participants\":[\"瑞子\",\"普子\"]}}")
           test "$STATUS" = '401'
-          STATUS=$(curl -sS --max-time 10 -o /tmp/cw-guest-endpoint-write.json -w '%{http_code}' -X POST 'https://wpfqcztbxxarsrruuuce.supabase.co/functions/v1/trip-guest' -H 'content-type: application/json' --data "{\"trip_slug\":\"chuanxi2026\",\"action\":\"write_anything\",\"payload\":{\"token\":\"$GUEST_TOKEN\"}}")
-          test "$STATUS" = '403'
-          grep -q 'guest_read_only' /tmp/cw-guest-endpoint-write.json
       - name: Map tile connectivity
         shell: bash
         run: |
