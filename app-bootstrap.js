@@ -37,6 +37,8 @@
       "./ledger-settlement-v4.js?v=1",
       "./sync-hub-v1.js?v=1",
       "./profile-display-v1.js?v=1",
+      "./ledger-related-focus-v1.js?v=1",
+      "./daily-rhythm-v1.js?v=1",
       "./map-open-watchdog-v1.js?v=1",
       "./map-v5.js?v=2",
       "./interaction-ux.js?v=1",
