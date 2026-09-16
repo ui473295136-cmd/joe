@@ -22,12 +22,22 @@ const puppeteer = require("puppeteer-core");
         !document.querySelector("#app")?.hidden,
       { timeout: 10000 },
     );
+    await page.waitForFunction(
+      () => document.querySelectorAll("#cwGuestPosList .cw-guest-pos").length === 4,
+      { timeout: 5000 },
+    );
+    await page.evaluate(() =>
+      document.querySelector('#bottomNav button[data-view="me"]')?.click(),
+    );
+    await page.waitForFunction(
+      () => document.querySelector('[data-ledgerview="all"]')?.classList.contains("on"),
+      { timeout: 4000 },
+    );
     const result = await page.evaluate(() => {
       const display = (sel) => {
         const e = document.querySelector(sel);
         return e ? getComputedStyle(e).display : "missing";
       };
-      document.querySelector('#bottomNav button[data-view="me"]')?.click();
       const probe = document.createElement("button");
       probe.dataset.ledger = "add-repay";
       probe.textContent = "写操作";
@@ -48,6 +58,9 @@ const puppeteer = require("puppeteer-core");
         navText:
           document.querySelector('#bottomNav button[data-view="me"]')?.textContent || "",
         toast: document.querySelector("#toast")?.textContent || "",
+        positions: [...document.querySelectorAll("#cwGuestPosList .cw-guest-pos")].map(
+          (x) => x.textContent.trim(),
+        ),
       };
     });
     if (!result.guest) throw new Error("guest flag missing");
@@ -60,6 +73,8 @@ const puppeteer = require("puppeteer-core");
     if (!result.navText.includes("账本")) throw new Error("guest ledger nav label missing");
     if (!result.toast.includes("访客模式只能查看"))
       throw new Error("guest write guard did not block action");
+    if (result.positions.length !== 4 || !result.positions.every((x) => /更新|位置/.test(x)))
+      throw new Error("guest live positions are incomplete");
     console.log("GUEST_OK", JSON.stringify(result));
   } finally {
     await browser.close();
