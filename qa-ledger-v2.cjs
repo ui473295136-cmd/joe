@@ -40,9 +40,10 @@ const sleep=ms=>new Promise(r=>setTimeout(r,ms));
     if(payerAfterQuick!=='辉子')throw new Error('QUICK_RESET_PAYER '+payerAfterQuick);
 
     await page.evaluate(()=>{const a=document.querySelector('#expAmount');a.value='1887';a.dispatchEvent(new Event('input',{bubbles:true}))});
-    await page.waitForFunction(()=>/辉子实际付款/.test(document.querySelector('#cwExpensePreview')?.innerText||''),{timeout:5000});
-    const preview=await page.$eval('#cwExpensePreview',e=>e.innerText);
-    if(!preview.includes('由瑞子代记账，不改变收款人'))throw new Error('PREVIEW_FAIL '+preview);
+    await sleep(220);
+    const previewSnap=await page.evaluate(()=>({preview:document.querySelector('#cwExpensePreview')?.innerText||'',payer:document.querySelector('#expPayer')?.value||'',amount:document.querySelector('#expAmount')?.value||'',category:document.querySelector('#expCategory')?.value||'',checked:[...document.querySelectorAll('#expParticipants input:checked')].map(x=>x.value),participants:document.querySelector('#expParticipants')?.innerText||'',errors:window.__cwErrors||[]}));
+    if(!/辉子实际付款/.test(previewSnap.preview))throw new Error('PREVIEW_STATE_FAIL '+JSON.stringify(previewSnap));
+    if(!previewSnap.preview.includes('由瑞子代记账，不改变收款人'))throw new Error('PREVIEW_FAIL '+previewSnap.preview);
     await page.$eval('#expenseForm',f=>f.requestSubmit());
     await sleep(500);
     const payload=await page.evaluate(()=>window.__ledgerRequests.at(-1));
