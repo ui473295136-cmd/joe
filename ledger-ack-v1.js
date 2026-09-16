@@ -61,11 +61,8 @@
         .map((a) => String(a.item_id)),
     );
   }
-  function pendingUnread() {
-    if (!state) {
-      const m = String($("#pendingBadge")?.textContent || "").match(/(\d+)/);
-      return m ? Number(m[1]) : 0;
-    }
+  function unreadExpenses() {
+    if (!state) return [];
     const seen = ackSet();
     return (state.expenses || []).filter(
       (e) =>
@@ -73,7 +70,17 @@
         e.payer !== ME &&
         normalizeParts(e.participants).includes(ME) &&
         !seen.has(String(e.id)),
-    ).length;
+    );
+  }
+  function unreadIds() {
+    return new Set(unreadExpenses().map((e) => String(e.id)));
+  }
+  function pendingUnread() {
+    if (!state) {
+      const m = String($("#pendingBadge")?.textContent || "").match(/(\d+)/);
+      return m ? Number(m[1]) : 0;
+    }
+    return unreadExpenses().length;
   }
   function linked(e, debtor) {
     return (state?.repayments || []).some(
@@ -161,9 +168,62 @@
     const s = document.createElement("style");
     s.id = "cwAckAllStyle";
     s.textContent = `
-.cw-ack-all{display:grid;gap:9px;margin:0 0 12px;padding:12px 13px;border:1px solid #d9e5e7;background:linear-gradient(135deg,#f8fbfb,#fff);border-radius:14px}.cw-ack-all[hidden]{display:none}.cw-ack-copy{display:flex;align-items:flex-start;justify-content:space-between;gap:10px}.cw-ack-copy div{display:grid;gap:2px}.cw-ack-copy b{font-size:12px;color:#173f50}.cw-ack-copy span{font-size:9px;color:#73878f;line-height:1.45}.cw-ack-summary{font-size:9px;font-weight:900;color:#0b6078;background:#eef6f5;border-radius:999px;padding:5px 8px;white-space:nowrap}.cw-ack-actions{display:grid;grid-template-columns:1fr 1fr;gap:8px}.cw-ack-actions button{min-height:42px;padding:0 12px;border-radius:12px;font-weight:900;font-size:12px}.cw-ack-actions button:disabled{opacity:.5}.cw-ack-read{border:1px solid #f1d8cf;background:#fff7f3;color:#a14f37}.cw-ack-approve{border:0;background:#0b6078;color:#fff}#pendingBadge.cw-clickable{cursor:pointer;box-shadow:0 0 0 3px #fce7e2}@media(max-width:420px){.cw-ack-actions{grid-template-columns:1fr}.cw-ack-copy{align-items:center}}
+.cw-ack-all{display:grid;gap:9px;margin:0 0 12px;padding:12px 13px;border:1px solid #d9e5e7;background:linear-gradient(135deg,#f8fbfb,#fff);border-radius:14px}.cw-ack-all[hidden]{display:none}.cw-ack-copy{display:flex;align-items:flex-start;justify-content:space-between;gap:10px}.cw-ack-copy div{display:grid;gap:2px}.cw-ack-copy b{font-size:12px;color:#173f50}.cw-ack-copy span{font-size:9px;color:#73878f;line-height:1.45}.cw-ack-summary{font-size:9px;font-weight:900;color:#0b6078;background:#eef6f5;border-radius:999px;padding:5px 8px;white-space:nowrap}.cw-ack-actions{display:grid;grid-template-columns:1fr 1fr;gap:8px}.cw-ack-actions button{min-height:42px;padding:0 12px;border-radius:12px;font-weight:900;font-size:12px}.cw-ack-actions button:disabled{opacity:.55}.cw-ack-read{border:1px solid #efc5b7;background:#fff5f0;color:#9b432d}.cw-ack-approve{border:0;background:#0b6078;color:#fff}#pendingBadge.cw-clickable{cursor:pointer;box-shadow:0 0 0 3px #fce7e2}#pendingBadge.cw-has-unread{background:#fff0e9!important;color:#a8452c!important;border-color:#efc5b7!important;font-weight:900}.cw-ledger-unread{position:relative;border-color:#efb39e!important;background:linear-gradient(135deg,#fff7f3 0%,#fff 70%)!important;box-shadow:0 4px 16px rgba(170,72,42,.08)}.cw-ledger-unread .ledger-top>div>b,.cw-ledger-unread .ledger-amt{color:#a8452c!important}.cw-ledger-unread .ledger-meta{color:#72534b!important}.cw-unread-flag{display:inline-flex;align-items:center;gap:4px;margin:7px 0 0;padding:4px 7px;border-radius:999px;background:#fbe3da;color:#9b432d;font-size:9px;font-weight:900;line-height:1}.cw-unread-flag:before{content:"";width:6px;height:6px;border-radius:50%;background:#d95f3a;box-shadow:0 0 0 3px rgba(217,95,58,.12)}.cw-unread-focus{animation:cwUnreadPulse 1.25s ease}.cw-ledger-unread .ack.wait{background:#fbe3da!important;color:#9b432d!important;border-color:#efc5b7!important}@keyframes cwUnreadPulse{0%,100%{transform:translateZ(0)}30%{box-shadow:0 0 0 5px rgba(217,95,58,.16),0 6px 20px rgba(170,72,42,.14)}65%{box-shadow:0 0 0 2px rgba(217,95,58,.08),0 4px 16px rgba(170,72,42,.08)}}@media(max-width:420px){.cw-ack-actions{grid-template-columns:1fr}.cw-ack-copy{align-items:center}}
 `;
     document.head.appendChild(s);
+  }
+  function decorateUnread() {
+    const list = $("#ledgerList");
+    if (!list || !state) return;
+    const ids = unreadIds();
+    list.querySelectorAll(".ledger-item").forEach((item) => {
+      const ack = item.querySelector('button[data-ledger="ack"][data-id]'),
+        id = ack ? String(ack.dataset.id || "") : "",
+        isUnread = !!id && ids.has(id);
+      item.classList.toggle("cw-ledger-unread", isUnread);
+      item.dataset.cwUnread = isUnread ? "1" : "0";
+      let flag = item.querySelector(".cw-unread-flag");
+      if (isUnread && !flag) {
+        flag = document.createElement("span");
+        flag.className = "cw-unread-flag";
+        flag.textContent = "未读";
+        const meta = item.querySelector(".ledger-meta");
+        if (meta) meta.insertAdjacentElement("afterend", flag);
+        else item.querySelector(".ledger-top > div")?.appendChild(flag);
+      } else if (!isUnread && flag) flag.remove();
+      if (ack) ack.hidden = !isUnread;
+    });
+  }
+  function focusUnread(expenseId = "") {
+    document.querySelector('#bottomNav button[data-view="me"]')?.click();
+    setTimeout(() => {
+      decorateUnread();
+      const ids = unreadIds();
+      let target = null;
+      for (const item of document.querySelectorAll("#ledgerList .ledger-item")) {
+        const ack = item.querySelector('button[data-ledger="ack"][data-id]'),
+          id = ack ? String(ack.dataset.id || "") : "";
+        if (!id || !ids.has(id)) continue;
+        if (!expenseId || id === String(expenseId)) {
+          target = item;
+          break;
+        }
+      }
+      if (!target) target = $("#cwAckAll");
+      target?.scrollIntoView?.({ behavior: "smooth", block: "center" });
+      if (target?.classList?.contains("ledger-item")) {
+        target.classList.remove("cw-unread-focus");
+        void target.offsetWidth;
+        target.classList.add("cw-unread-focus");
+        setTimeout(() => target?.classList?.remove("cw-unread-focus"), 1500);
+      }
+    }, 140);
+  }
+  function bindJump(el) {
+    if (!el || el.dataset.cwUnreadJump === "1") return;
+    el.dataset.cwUnreadJump = "1";
+    el.classList.add("cw-clickable");
+    el.addEventListener("click", () => focusUnread());
   }
   function ensure() {
     style();
@@ -175,22 +235,13 @@
       box.id = "cwAckAll";
       box.className = "cw-ack-all";
       box.innerHTML =
-        '<div class="cw-ack-copy"><div><b>批量处理账本</b><span id="cwAckAllText">一次处理，不用逐条点击</span></div><strong class="cw-ack-summary" id="cwAckSummary">0项待处理</strong></div><div class="cw-ack-actions"><button type="button" class="cw-ack-read" id="cwAckAllBtn">一键已读</button><button type="button" class="cw-ack-approve" id="cwApproveAllBtn">一键审批</button></div>';
+        '<div class="cw-ack-copy"><div><b>消息与账本处理</b><span id="cwAckAllText">未读账单会用醒目颜色标出</span></div><strong class="cw-ack-summary" id="cwAckSummary">0项待处理</strong></div><div class="cw-ack-actions"><button type="button" class="cw-ack-read" id="cwAckAllBtn">全部已读</button><button type="button" class="cw-ack-approve" id="cwApproveAllBtn">一键审批</button></div>';
       list.parentElement?.insertBefore(box, list);
       $("#cwAckAllBtn").onclick = ackAll;
       $("#cwApproveAllBtn").onclick = approveAll;
-      const badge = $("#pendingBadge");
-      if (badge) {
-        badge.classList.add("cw-clickable");
-        badge.addEventListener("click", () => {
-          document.querySelector('#bottomNav button[data-view="me"]')?.click();
-          setTimeout(
-            () => box.scrollIntoView({ behavior: "smooth", block: "center" }),
-            120,
-          );
-        });
-      }
     }
+    bindJump($("#pendingBadge"));
+    bindJump($("#navBadge"));
     return box;
   }
   function paint() {
@@ -199,23 +250,31 @@
     const unread = pendingUnread(),
       approval = pendingApproval(),
       total = unread + approval.count;
-    box.hidden = total <= 0;
+    box.hidden = false;
     $("#cwAckAllText").textContent = [
-      unread ? `${unread}笔账单未读` : "账单已全部读完",
+      unread ? `${unread}笔账单未读，点击未读提示可直接定位` : "账单消息已全部读完",
       approval.count
         ? `${approval.count}项AA款待${ME}确认收款`
         : "没有待审批AA款",
     ].join(" · ");
-    $("#cwAckSummary").textContent = `${total}项待处理`;
+    $("#cwAckSummary").textContent = total > 0 ? `${total}项待处理` : "全部处理完成";
     const read = $("#cwAckAllBtn"),
-      approve = $("#cwApproveAllBtn");
+      approve = $("#cwApproveAllBtn"),
+      badge = $("#pendingBadge");
+    if (badge) {
+      const txt = unread > 0 ? `${unread}笔未读` : "全部已读";
+      if (badge.textContent !== txt) badge.textContent = txt;
+      badge.classList.toggle("cw-has-unread", unread > 0);
+      badge.setAttribute("aria-label", unread > 0 ? `${unread}笔未读账单，点击查看` : "账单消息已全部读完");
+    }
     read.disabled = !!busy || unread <= 0;
     approve.disabled = !!busy || approval.count <= 0;
-    read.textContent = unread > 0 ? `一键已读 ${unread}笔` : "已全部读完";
+    read.textContent = unread > 0 ? `全部已读 ${unread}笔` : "已全部读完";
     approve.textContent =
       approval.count > 0
         ? `一键审批 ${approval.count}项 · ${moneyCt(approval.totalCt)}`
         : "无需审批";
+    decorateUnread();
   }
   function refreshEverywhere(reason) {
     if (!QA)
@@ -226,7 +285,8 @@
   }
   async function ackAll() {
     if (busy) return;
-    const n = pendingUnread();
+    const unread = unreadExpenses(),
+      n = unread.length;
     if (!n) return;
     busy = "read";
     paint();
@@ -234,10 +294,33 @@
     if (b) b.textContent = "正在全部标记…";
     try {
       const j = await request("ack_all");
-      toast(`已一键读完 ${j.count ?? n} 笔账单`);
+      if (state && unread.length) {
+        const seen = ackSet(),
+          now = new Date().toISOString(),
+          added = unread
+            .filter((e) => !seen.has(String(e.id)))
+            .map((e) => ({
+              trip_slug: TRIP,
+              item_type: "expense",
+              item_id: e.id,
+              person: ME,
+              acked_at: now,
+            }));
+        if (added.length) {
+          state = {
+            ...state,
+            ledger_acks: [...(state.ledger_acks || []), ...added],
+          };
+          window.dispatchEvent(
+            new CustomEvent("cw:state", { detail: { state } }),
+          );
+        }
+      }
+      paint();
+      toast(`已全部读完 ${j.count ?? n} 笔账单`);
       refreshEverywhere("ledger-read-all");
     } catch (e) {
-      toast(e.message || "一键已读失败");
+      toast(e.message || "全部已读失败");
     } finally {
       busy = "";
       setTimeout(paint, 180);
@@ -288,7 +371,7 @@
       list = $("#ledgerList");
     if ("MutationObserver" in window) {
       if (badge)
-        new MutationObserver(paint).observe(badge, {
+        new MutationObserver(() => setTimeout(paint, 0)).observe(badge, {
           childList: true,
           subtree: true,
           characterData: true,
@@ -296,6 +379,7 @@
       if (list)
         new MutationObserver(() => setTimeout(paint, 0)).observe(list, {
           childList: true,
+          subtree: true,
         });
     }
     if (!QA)
@@ -312,4 +396,10 @@
       once: true,
     });
   else setTimeout(init, 180);
+
+  window.CWLedgerUnread = {
+    focusUnread,
+    pendingUnread,
+    decorate: decorateUnread,
+  };
 })();
