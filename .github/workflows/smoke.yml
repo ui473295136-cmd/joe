@@ -17,6 +17,7 @@ jobs:
       - name: JavaScript syntax
         run: |
           node --check app-v4.js
+          node --check guest-mode-v1.js
           node --check ledger-detail-v3.js
           node --check ledger-settlement-v4.js
           node --check sync-hub-v1.js
@@ -29,6 +30,7 @@ jobs:
           node --check avatar-interactions-v1.js
           node --check avatar-interactions-qa-mock-v1.js
           node --check qa-avatar-interactions.cjs
+          node --check qa-guest.cjs
           node --check trip-stage-v2.js
           node --check stage-tag-guard-v1.js
           node --check trip-stage-card-guard-v1.js
@@ -61,9 +63,14 @@ jobs:
       - name: Required files and links
         shell: bash
         run: |
-          for f in index.html app-v4.html app-v4.css app-v4.js ledger-detail-v3.js ledger-settlement-v4.js sync-hub-v1.js profile-display-v1.js map-open-watchdog-v1.js auth-guard.js geo-throttle.js time-compat-v1.js driver-fun-v2.js driver-fun-v2.css avatar-interactions-v1.js avatar-interactions-v1.css avatar-interactions-qa-mock-v1.js qa-avatar-interactions.cjs trip-stage-v2.js trip-stage-v2.css stage-tag-guard-v1.js trip-stage-card-guard-v1.js itinerary-header-sync-v1.js qa-stage.js ledger-v2.js ledger-v2.css qa-ledger-v2.cjs minimal-v1.js minimal-v1.css profile-sync-v2.js profile-sync-v2.css profile-upload-v3.js admin-switch-v1.js ledger-ack-v1.js itinerary-live-v1.js itinerary-live-v1.css daily-card-v1.js daily-card-v1.css daily-finance-pairwise-v1.js travel-assist-v1.js travel-assist-v1.css travel-assist-dayfix-v1.js map-state-guard-v1.js social-v1.js social-v1.css social-qa-mock-v1.js map-v5.js map-v5.css qa-mock.js qa-probe.js qa-ci.js avatars.js manifest.webmanifest icon.svg sw.js road-routes.json; do test -s "$f"; done
+          for f in index.html app-v4.html app-v4.css app-v4.js guest-mode-v1.js ledger-detail-v3.js ledger-settlement-v4.js sync-hub-v1.js profile-display-v1.js map-open-watchdog-v1.js auth-guard.js geo-throttle.js time-compat-v1.js driver-fun-v2.js driver-fun-v2.css avatar-interactions-v1.js avatar-interactions-v1.css avatar-interactions-qa-mock-v1.js qa-avatar-interactions.cjs qa-guest.cjs trip-stage-v2.js trip-stage-v2.css stage-tag-guard-v1.js trip-stage-card-guard-v1.js itinerary-header-sync-v1.js qa-stage.js ledger-v2.js ledger-v2.css qa-ledger-v2.cjs minimal-v1.js minimal-v1.css profile-sync-v2.js profile-sync-v2.css profile-upload-v3.js admin-switch-v1.js ledger-ack-v1.js itinerary-live-v1.js itinerary-live-v1.css daily-card-v1.js daily-card-v1.css daily-finance-pairwise-v1.js travel-assist-v1.js travel-assist-v1.css travel-assist-dayfix-v1.js map-state-guard-v1.js social-v1.js social-v1.css social-qa-mock-v1.js map-v5.js map-v5.css qa-mock.js qa-probe.js qa-ci.js avatars.js manifest.webmanifest icon.svg sw.js road-routes.json supabase/functions/trip-auth/index.ts supabase/functions/trip-guest/index.ts; do test -s "$f"; done
           for f in session-store.js login.js app-bootstrap.js offline-v1.js interaction-ux.js interaction-ux.css; do test -s "$f"; done
-          grep -q 'trip-auth' session-store.js
+          grep -q 'trip-guest' session-store.js
+          grep -q 'GUEST = "访客"' session-store.js
+          grep -q 'guest-mode-v1.js?v=1' app-bootstrap.js
+          grep -q '访客模式' login.js
+          grep -q 'guest_read_only' supabase/functions/trip-auth/index.ts
+          grep -q 'guest_read_only' supabase/functions/trip-guest/index.ts
           grep -q 'login.js' index.html
           grep -q 'auth-guard.js' app-v4.html
           grep -q 'app-bootstrap.js' app-v4.html
@@ -104,7 +111,8 @@ jobs:
           ! grep -q 'ux-v6.js' geo-throttle.js
           ! grep -q 'dashboard.html' index.html
           grep -q 'navBadge' app-v4.html
-          grep -q 'chuanxi-2026-v54-unread-ledger' sw.js
+          grep -q 'chuanxi-2026-v55-guest-readonly' sw.js
+          grep -q 'guest-mode-v1.js' sw.js
           grep -q 'ledger-detail-v3.js' sw.js
           grep -q 'ledger-settlement-v4.js' sw.js
           grep -q 'sync-hub-v1.js' sw.js
@@ -138,6 +146,18 @@ jobs:
           curl -sS --max-time 10 -X POST 'https://wpfqcztbxxarsrruuuce.supabase.co/functions/v1/trip-assist' -H 'content-type: application/json' --data '{"trip_slug":"chuanxi2026","action":"state","payload":{"person":"瑞子","token":"invalid"}}' | grep -q '登录已失效'
           curl -sS --max-time 10 -X POST 'https://wpfqcztbxxarsrruuuce.supabase.co/functions/v1/trip-social' -H 'content-type: application/json' --data '{"trip_slug":"chuanxi2026","action":"state","payload":{"person":"瑞子","token":"invalid"}}' | grep -q '登录已失效'
           curl -sS --max-time 10 -X POST 'https://wpfqcztbxxarsrruuuce.supabase.co/functions/v1/trip-interaction' -H 'content-type: application/json' --data '{"trip_slug":"chuanxi2026","action":"state","payload":{"person":"瑞子","token":"invalid"}}' | grep -q '登录已失效'
+
+          GUEST_JSON=$(curl -fsS --max-time 10 -X POST 'https://wpfqcztbxxarsrruuuce.supabase.co/functions/v1/trip-auth' -H 'content-type: application/json' --data '{"trip_slug":"chuanxi2026","action":"guest","payload":{}}')
+          GUEST_TOKEN=$(printf '%s' "$GUEST_JSON" | node -pe 'JSON.parse(require("fs").readFileSync(0,"utf8")).token')
+          test -n "$GUEST_TOKEN"
+          printf '%s' "$GUEST_JSON" | grep -q '"read_only":true'
+          curl -fsS --max-time 12 -X POST 'https://wpfqcztbxxarsrruuuce.supabase.co/functions/v1/trip-auth' -H 'content-type: application/json' --data "{\"trip_slug\":\"chuanxi2026\",\"action\":\"validate\",\"payload\":{\"person\":\"访客\",\"token\":\"$GUEST_TOKEN\"}}" | grep -q '"valid":true'
+          curl -fsS --max-time 15 -X POST 'https://wpfqcztbxxarsrruuuce.supabase.co/functions/v1/trip-guest' -H 'content-type: application/json' --data "{\"trip_slug\":\"chuanxi2026\",\"action\":\"sync_state\",\"payload\":{\"token\":\"$GUEST_TOKEN\"}}" | grep -q '"read_only":true'
+          STATUS=$(curl -sS --max-time 10 -o /tmp/cw-guest-write.json -w '%{http_code}' -X POST 'https://wpfqcztbxxarsrruuuce.supabase.co/functions/v1/trip-sync' -H 'content-type: application/json' --data "{\"trip_slug\":\"chuanxi2026\",\"action\":\"add_expense\",\"payload\":{\"session_person\":\"访客\",\"session_token\":\"$GUEST_TOKEN\",\"payer\":\"瑞子\",\"amount\":1,\"participants\":[\"瑞子\",\"普子\"]}}")
+          test "$STATUS" = '401'
+          STATUS=$(curl -sS --max-time 10 -o /tmp/cw-guest-endpoint-write.json -w '%{http_code}' -X POST 'https://wpfqcztbxxarsrruuuce.supabase.co/functions/v1/trip-guest' -H 'content-type: application/json' --data "{\"trip_slug\":\"chuanxi2026\",\"action\":\"write_anything\",\"payload\":{\"token\":\"$GUEST_TOKEN\"}}")
+          test "$STATUS" = '403'
+          grep -q 'guest_read_only' /tmp/cw-guest-endpoint-write.json
       - name: Map tile connectivity
         shell: bash
         run: |
@@ -152,7 +172,7 @@ jobs:
           test -s /tmp/amap.png || test -s /tmp/geoq.png
       - name: Install browser driver
         run: npm install --no-save --ignore-scripts puppeteer-core@24.16.0
-      - name: Full four-identity browser regression
+      - name: Full browser regression
         shell: bash
         run: |
           python3 -m http.server 8000 >/tmp/cw-http.log 2>&1 &
@@ -160,6 +180,7 @@ jobs:
           trap 'kill $SERVER_PID || true' EXIT
           sleep 1
           export CHROME="$(command -v google-chrome || command -v chromium || command -v chromium-browser)"
+          QA_BASE='http://127.0.0.1:8000' node qa-guest.cjs
           QA_BASE='http://127.0.0.1:8000' node qa-stage.js
           QA_BASE='http://127.0.0.1:8000' node qa-ledger-v2.cjs
           QA_BASE='http://127.0.0.1:8000' node qa-ci.js
