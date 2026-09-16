@@ -13,6 +13,18 @@
     msg = $("#authMsg"),
     title = $("#authTitle"),
     input = $("#pinInput");
+  function ensureGuestEntry() {
+    if ($("#guestMode")) return;
+    const people = $(".people");
+    if (!people) return;
+    const style = document.createElement("style");
+    style.textContent = `.guest-entry{width:100%;margin-top:12px;min-height:62px;border:1px solid rgba(165,241,212,.34);border-radius:16px;background:rgba(165,241,212,.09);color:#fff;text-align:left;padding:12px 15px;display:flex;align-items:center;justify-content:space-between;gap:14px}.guest-entry b{font-size:16px}.guest-entry span{display:block;margin-top:4px;color:#b9d5dd;font-size:11px;font-weight:600}.guest-entry em{font-style:normal;font-size:11px;font-weight:900;color:#a5f1d4;background:rgba(165,241,212,.1);border-radius:999px;padding:6px 9px;white-space:nowrap}.guest-entry:active{transform:scale(.99)}.guest-entry:disabled{opacity:.65}#guestState{min-height:16px;margin-top:6px;font-size:11px;color:#ffd9cc}`;
+    document.head.appendChild(style);
+    const wrap = document.createElement("div");
+    wrap.innerHTML = `<button type="button" class="guest-entry" id="guestMode"><div><b>访客模式</b><span>查看四人实时信息 · 不能添加、修改或删除</span></div><em>只读浏览</em></button><div id="guestState"></div>`;
+    people.insertAdjacentElement("afterend", wrap);
+  }
+  ensureGuestEntry();
   let person = "",
     mode = "verify",
     first = "",
@@ -70,10 +82,7 @@
         message("冷却结束，可以重新输入密码");
         return;
       }
-      message(
-        `已锁定，请 ${Math.floor(s / 60)}:${String(s % 60).padStart(2, "0")} 后再试`,
-        "lock",
-      );
+      message(`已锁定，请 ${Math.floor(s / 60)}:${String(s % 60).padStart(2, "0")} 后再试`, "lock");
     };
     lockTimer = setInterval(tick, 1000);
     tick();
@@ -139,20 +148,14 @@
       const status = await auth.request("status", { person: p });
       if (seq !== sequence) return;
       mode = status.configured ? "verify" : "setup";
-      input.autocomplete =
-        mode === "verify" ? "current-password" : "new-password";
+      input.autocomplete = mode === "verify" ? "current-password" : "new-password";
       if (status.locked) {
         title.textContent = "暂时无法进入";
         countdown(status.lock_seconds);
         return;
       }
-      title.textContent =
-        mode === "verify" ? "请输入 4 位密码" : "首次进入 · 设置密码";
-      message(
-        mode === "verify"
-          ? `还有 ${status.remaining_attempts ?? 5} 次机会`
-          : "请输入新的 4 位数字密码",
-      );
+      title.textContent = mode === "verify" ? "请输入 4 位密码" : "首次进入 · 设置密码";
+      message(mode === "verify" ? `还有 ${status.remaining_attempts ?? 5} 次机会` : "请输入新的 4 位数字密码");
       entry();
     } catch (e) {
       message("登录服务暂时无法连接，登录记忆已保留", "error");
@@ -166,15 +169,11 @@
     busy = true;
     keys(true);
     message("正在验证…");
-    const typed = input.value;
-    const remember = $("#rememberDevice").checked;
+    const typed = input.value,
+      remember = $("#rememberDevice").checked;
     reset();
     try {
-      const s = await auth.request("verify", {
-        person,
-        pin: typed,
-        remember_device: remember,
-      });
+      const s = await auth.request("verify", { person, pin: typed, remember_device: remember });
       enter(s, remember);
     } catch (e) {
       if (e.code === "locked") {
@@ -199,10 +198,7 @@
   }
   function complete() {
     if (busy || input.disabled || input.value.length !== 4) return;
-    if (mode === "verify") {
-      verify();
-      return;
-    }
+    if (mode === "verify") return verify();
     if (stage === 1) {
       first = input.value;
       reset();
@@ -234,12 +230,7 @@
     message("正在安全保存…");
     const remember = $("#rememberDevice").checked;
     try {
-      const s = await auth.request("setup", {
-        person,
-        pin: first,
-        confirm_pin: first,
-        remember_device: remember,
-      });
+      const s = await auth.request("setup", { person, pin: first, confirm_pin: first, remember_device: remember });
       enter(s, remember);
     } catch (e) {
       message(e.message || "保存失败，请重试", "error");
@@ -256,42 +247,24 @@
   $("#keypad").onclick = (e) => {
     const b = e.target.closest("[data-key]");
     if (!b || b.disabled || busy) return;
-    input.value =
-      b.dataset.key === "del"
-        ? input.value.slice(0, -1)
-        : (input.value + b.dataset.key).slice(0, 4);
+    input.value = b.dataset.key === "del" ? input.value.slice(0, -1) : (input.value + b.dataset.key).slice(0, 4);
     paint();
     complete();
   };
-  document
-    .querySelectorAll("[data-name]")
-    .forEach((b) => (b.onclick = () => choose(b.dataset.name)));
+  document.querySelectorAll("[data-name]").forEach((b) => (b.onclick = () => choose(b.dataset.name)));
   $("#guestMode")?.addEventListener("click", enterGuest);
   $("#authCancel").onclick = close;
   $("#setupCancel").onclick = close;
   $("#setupConfirm").onclick = setup;
   $("#authRetry").onclick = () => choose(person);
-  overlay.addEventListener("click", (e) => {
-    if (e.target === overlay) close();
-  });
+  overlay.addEventListener("click", (e) => { if (e.target === overlay) close(); });
   document.addEventListener("keydown", (e) => {
     if (!overlay.classList.contains("show")) return;
-    if (e.key === "Escape") {
-      e.preventDefault();
-      close();
-      return;
-    }
+    if (e.key === "Escape") { e.preventDefault(); close(); return; }
     if (e.key === "Tab") {
-      const list = [...overlay.querySelectorAll("button,input,a[href]")].filter(
-        (x) => !x.disabled && !x.hidden && x.getClientRects().length,
-      );
-      if (e.shiftKey && document.activeElement === list[0]) {
-        e.preventDefault();
-        list.at(-1)?.focus();
-      } else if (!e.shiftKey && document.activeElement === list.at(-1)) {
-        e.preventDefault();
-        list[0]?.focus();
-      }
+      const list = [...overlay.querySelectorAll("button,input,a[href]")].filter((x) => !x.disabled && !x.hidden && x.getClientRects().length);
+      if (e.shiftKey && document.activeElement === list[0]) { e.preventDefault(); list.at(-1)?.focus(); }
+      else if (!e.shiftKey && document.activeElement === list.at(-1)) { e.preventDefault(); list[0]?.focus(); }
     }
   });
   const qs = new URLSearchParams(location.search),
