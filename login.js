@@ -86,6 +86,30 @@
     $("#loading").classList.add("show");
     location.replace("./app-v4.html?person=" + encodeURIComponent(person));
   }
+  async function enterGuest() {
+    if (busy) return;
+    busy = true;
+    const b = $("#guestMode");
+    if (b) {
+      b.disabled = true;
+      b.querySelector("b").textContent = "正在进入访客模式…";
+    }
+    try {
+      const session = await auth.issueGuest();
+      auth.activateGuestShadow(session);
+      sessionStorage.setItem("cw-admin", "0");
+      $("#loading").classList.add("show");
+      location.replace("./app-v4.html?person=%E7%91%9E%E5%AD%90&guest=1");
+    } catch (e) {
+      if (b) {
+        b.disabled = false;
+        b.querySelector("b").textContent = "访客模式";
+      }
+      const foot = $("#guestState");
+      if (foot) foot.textContent = e.message || "暂时无法进入访客模式，请重试";
+      busy = false;
+    }
+  }
   async function choose(p) {
     if (!TEAM.includes(p) || busy) return;
     person = p;
@@ -242,6 +266,7 @@
   document
     .querySelectorAll("[data-name]")
     .forEach((b) => (b.onclick = () => choose(b.dataset.name)));
+  $("#guestMode")?.addEventListener("click", enterGuest);
   $("#authCancel").onclick = close;
   $("#setupCancel").onclick = close;
   $("#setupConfirm").onclick = setup;
@@ -272,5 +297,6 @@
   const qs = new URLSearchParams(location.search),
     p = qs.get("person") || localStorage.getItem("cw-person");
   if (qs.has("logout")) message("此设备的登录记忆已清除");
-  if (TEAM.includes(p) && !qs.has("choose") && !qs.has("logout")) choose(p);
+  if (qs.get("guest") === "1") enterGuest();
+  else if (TEAM.includes(p) && !qs.has("choose") && !qs.has("logout")) choose(p);
 })();
