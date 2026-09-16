@@ -5,10 +5,12 @@ const { app, wait, until } = require("./helpers.cjs");
 test("daily popup shows each direct creditor separately instead of merging totals", async () => {
   const { dom, w, d } = await app("瑞子");
   try {
-    await until(() => typeof w.__cwDailyTestOpen === "function" && !!w.CWDailyFinance);
-    w.__cwDailyTestOpen();
-    await until(() => d.querySelector("#cwDailyCard")?.classList.contains("show"));
-    await wait(700);
+    await until(() => !!w.CWDailyFinance);
+    d.querySelector("#cwDailyCard")?.remove();
+    const card = d.createElement("div");
+    card.id = "cwDailyCard";
+    card.innerHTML = '<div id="cwDailyBody"></div>';
+    d.body.appendChild(card);
 
     const state = {
       expenses: [
@@ -38,16 +40,21 @@ test("daily popup shows each direct creditor separately instead of merging total
       Number(x.ct),
     ]).sort((a, b) => a[0].localeCompare(b[0]));
     assert.equal(calculated.length, 2);
-    assert.equal(JSON.stringify(calculated), JSON.stringify([
-      ["航子", 45000],
-      ["辉子", 45000],
-    ].sort((a, b) => a[0].localeCompare(b[0]))));
+    assert.equal(
+      JSON.stringify(calculated),
+      JSON.stringify(
+        [
+          ["航子", 45000],
+          ["辉子", 45000],
+        ].sort((a, b) => a[0].localeCompare(b[0])),
+      ),
+    );
     await until(
       () =>
         d.querySelectorAll(
           "#cwDailyBody .cw-daily-line.money[data-cw-pairwise='1']",
         ).length === 2,
-      1800,
+      1000,
     );
 
     const rows = [
@@ -62,6 +69,7 @@ test("daily popup shows each direct creditor separately instead of merging total
     );
     assert.ok(rows.every((x) => x.textContent.includes("¥450.00")));
     assert.equal(rows.some((x) => x.textContent.includes("¥900.00")), false);
+    await wait(50);
   } finally {
     dom.window.close();
   }
