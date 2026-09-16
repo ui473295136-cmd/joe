@@ -42,7 +42,6 @@
       "./structured-clone-compat-v1.js?v=1",
       "./itinerary-selection-fix-v1.js?v=1",
       "./itinerary-admin-v1.js?v=1",
-      "./itinerary-editor-save-v1.js?v=1",
       "./itinerary-dynamic-guard-v1.js?v=2",
       "./map-open-watchdog-v1.js?v=1",
       "./map-v5.js?v=2",
