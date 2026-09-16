@@ -1,4 +1,4 @@
-const CACHE = "chuanxi-2026-v58-itinerary-compat";
+const CACHE = "chuanxi-2026-v59-itinerary-switch";
 const RUNTIME = "chuanxi-2026-runtime-v3";
 const CORE = [
   "./",
