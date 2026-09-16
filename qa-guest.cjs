@@ -31,7 +31,11 @@ const puppeteer = require("puppeteer-core");
     );
     await page.waitForFunction(
       () => document.querySelector('[data-ledgerview="all"]')?.classList.contains("on"),
-      { timeout: 4000 },
+      { timeout: 5000 },
+    );
+    await page.waitForFunction(
+      () => /账本/.test(document.querySelector('#bottomNav button[data-view="me"]')?.textContent || ""),
+      { timeout: 5000 },
     );
     const result = await page.evaluate(() => {
       const display = (sel) => {
@@ -61,6 +65,7 @@ const puppeteer = require("puppeteer-core");
         positions: [...document.querySelectorAll("#cwGuestPosList .cw-guest-pos")].map(
           (x) => x.textContent.trim(),
         ),
+        errors: window.__cwErrors || [],
       };
     });
     if (!result.guest) throw new Error("guest flag missing");
@@ -75,6 +80,7 @@ const puppeteer = require("puppeteer-core");
       throw new Error("guest write guard did not block action");
     if (result.positions.length !== 4 || !result.positions.every((x) => /更新|位置/.test(x)))
       throw new Error("guest live positions are incomplete");
+    if (result.errors.length) throw new Error("guest runtime errors " + JSON.stringify(result.errors));
     console.log("GUEST_OK", JSON.stringify(result));
   } finally {
     await browser.close();
