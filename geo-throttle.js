@@ -91,6 +91,7 @@
     script("./ledger-ack-v1.js?v=2", "cw-ledger-ack");
     script("./itinerary-live-v1.js?v=2", "cw-itinerary");
     script("./daily-card-v1.js?v=3", "cw-daily");
+    script("./daily-finance-pairwise-v1.js?v=1", "cw-daily-finance-pairwise");
     script("./travel-assist-v1.js?v=1", "cw-travel-assist");
     script("./travel-assist-dayfix-v1.js?v=1", "cw-travel-assist-dayfix");
     script("./map-state-guard-v1.js?v=1", "cw-map-state-guard");
