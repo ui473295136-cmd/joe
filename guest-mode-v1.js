@@ -197,6 +197,17 @@ html.cw-guest-mode .ledger-item{cursor:default}
     }
     return false;
   }
+  function ensureGuestNav() {
+    const nav = document.querySelector('#bottomNav button[data-view="me"]');
+    if (!nav || /账本/.test(nav.textContent || "")) return;
+    const badge = nav.querySelector("#navBadge") || document.createElement("i");
+    badge.id = "navBadge";
+    badge.setAttribute("aria-label", "有未读");
+    nav.replaceChildren();
+    const icon = document.createElement("span");
+    icon.textContent = "¥";
+    nav.append(icon, document.createTextNode("账本"), badge);
+  }
   function applyReadOnlyCopy() {
     ensureBanner();
     const h = document.querySelector("#helloName"),
@@ -204,7 +215,6 @@ html.cw-guest-mode .ledger-item{cursor:default}
       sub = document.querySelector("#topSub"),
       meTitle = document.querySelector("#view-me .page-title h1"),
       meP = document.querySelector("#view-me .page-title p"),
-      nav = document.querySelector('#bottomNav button[data-view="me"]'),
       gps = document.querySelector("#gpsStatus"),
       place = document.querySelector("#nowPlace");
     if (h) h.textContent = "访客浏览 · 四人实时行程";
@@ -212,7 +222,7 @@ html.cw-guest-mode .ledger-item{cursor:default}
     if (sub) sub.textContent = "访客模式 · 四人实时数据";
     if (meTitle) meTitle.textContent = "共享账本";
     if (meP) meP.textContent = "只读查看全部账单与四人结算，不可新增、修改或删除";
-    if (nav && !/账本/.test(nav.textContent || "")) nav.innerHTML = '<span>¥</span>账本';
+    ensureGuestNav();
     if (gps) gps.textContent = "访客只读";
     if (place && /等待定位|请允许/.test(place.textContent || ""))
       place.textContent = "查看成员实时信息";
@@ -274,12 +284,7 @@ html.cw-guest-mode .ledger-item{cursor:default}
     if (!document.hidden) {
       forceAllLedger();
       renderTeamPositions();
-      document.dispatchEvent(new Event("visibilitychange"));
-      window.dispatchEvent(
-        new CustomEvent("cw:sync-pulse", {
-          detail: { reason: "guest-live-refresh", at: Date.now() },
-        }),
-      );
+      renderMoneyOverview();
     }
   }, 5000);
 })();
