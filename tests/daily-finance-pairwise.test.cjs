@@ -8,6 +8,7 @@ test("daily popup shows each direct creditor separately instead of merging total
     await until(() => typeof w.__cwDailyTestOpen === "function" && !!w.CWDailyFinance);
     w.__cwDailyTestOpen();
     await until(() => d.querySelector("#cwDailyCard")?.classList.contains("show"));
+    await wait(700);
 
     const state = {
       expenses: [
@@ -37,9 +38,20 @@ test("daily popup shows each direct creditor separately instead of merging total
       ],
     };
     w.CWDailyFinance.setStateForTest(state);
-    await wait(80);
+    assert.equal(w.CWDailyFinance.rowsFor("瑞子").length, 2);
+    await until(
+      () =>
+        d.querySelectorAll(
+          "#cwDailyBody .cw-daily-line.money[data-cw-pairwise='1']",
+        ).length === 2,
+      1800,
+    );
 
-    const rows = [...d.querySelectorAll("#cwDailyBody .cw-daily-line.money[data-cw-pairwise='1']")];
+    const rows = [
+      ...d.querySelectorAll(
+        "#cwDailyBody .cw-daily-line.money[data-cw-pairwise='1']",
+      ),
+    ];
     assert.equal(rows.length, 2);
     const texts = rows.map((x) => x.textContent.replace(/\s+/g, " "));
     assert.ok(texts.some((x) => x.includes("应付 辉子 ¥450.00")));
