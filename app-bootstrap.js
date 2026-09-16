@@ -41,7 +41,7 @@
       "./daily-rhythm-v1.js?v=1",
       "./structured-clone-compat-v1.js?v=1",
       "./itinerary-admin-v1.js?v=1",
-      "./itinerary-dynamic-guard-v1.js?v=1",
+      "./itinerary-dynamic-guard-v1.js?v=2",
       "./map-open-watchdog-v1.js?v=1",
       "./map-v5.js?v=2",
       "./interaction-ux.js?v=1",
