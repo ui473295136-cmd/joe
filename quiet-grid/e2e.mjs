@@ -78,7 +78,7 @@ try{
  const accept=async dialog=>await dialog.accept();
  bob.once("dialog",accept);
  await withdrawRow.locator(".revoke-btn").click();
- await withdrawRow.getByText("此条消息已撤回").waitFor({state:"visible",timeout:12000});
+ await bob.locator("#grid tbody tr.withdrawn-row").filter({hasText:"此条消息已撤回"}).first().waitFor({state:"visible",timeout:12000});
  await reveal(alice);
  await alice.locator("#grid tbody tr.withdrawn-row").filter({hasText:"此条消息已撤回"}).first().waitFor({state:"visible",timeout:18000});
  assert.equal(await alice.locator("#grid tbody tr").filter({hasText:second}).count(),0,"Recalled plaintext remains in recipient table");
