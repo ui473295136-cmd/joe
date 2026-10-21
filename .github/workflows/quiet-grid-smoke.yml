@@ -1,77 +1,51 @@
-name: Quiet Grid Smoke Test
+name: Quiet Grid Offboarding Check
 on:
   workflow_dispatch:
   push:
     paths:
       - ".github/workflows/quiet-grid-smoke.yml"
-      - "quiet-grid/**"
+      - "quiet-grid/index.html"
 jobs:
   verify:
     runs-on: ubuntu-24.04
     steps:
-      - name: Checkout web source
+      - name: Checkout
         uses: actions/checkout@v4
-      - name: Validate browser JavaScript syntax
-        shell: bash
+      - name: Check GitHub source shows only offline notice
         run: |
           python3 - <<'PY'
           from pathlib import Path
-          import re
-          src=Path("quiet-grid/index.html").read_text(encoding="utf8")
-          script=re.search(r"<script>\s*(.*?)\s*</script>",src,re.S)
-          assert script, "Missing script"
-          Path("/tmp/quiet-grid-app.js").write_text(script.group(1),encoding="utf8")
+          html=Path("quiet-grid/index.html").read_text(encoding="utf8")
+          assert "<h1>网页已下架</h1>" in html
+          assert "该网页已停止提供服务。" in html
+          assert "<script" not in html.lower()
+          assert "grid-workbook" not in html
+          print("PASS offline page replaced chat interface")
           PY
-          node --check /tmp/quiet-grid-app.js
-      - name: Verify live GitHub Pages URL
-        shell: bash
+      - name: Check backend returns HTTP 410 for reads and messages
         run: |
           python3 - <<'PY'
-          import urllib.request, time
-          url="https://ui473295136-cmd.github.io/joe/quiet-grid/"
-          for attempt in range(6):
+          import urllib.request,urllib.error,json
+          api="https://wpfqcztbxxarsrruuuce.supabase.co/functions/v1/grid-workbook"
+          for method in ["GET","POST"]:
+              req=urllib.request.Request(api,method=method,data=b'{"action":"poll"}' if method=="POST" else None,headers={"Content-Type":"application/json"})
               try:
-                  req=urllib.request.Request(url,headers={"User-Agent":"Mozilla/5.0 (deployment-check)"})
-                  with urllib.request.urlopen(req,timeout=25) as res:
-                      html=res.read().decode("utf-8")
-                      assert res.status==200
-                      assert "项目进度台账" in html, "Incorrect Pages content"
-                      assert "协作记录" in html, "Chat UI missing"
-                      assert "grid-workbook" in html, "Backend connection missing"
-                      print("PASS: Published webpage at",url)
-                      break
-              except Exception as e:
-                  if attempt==5: raise
-                  print("Waiting for Github Pages:",str(e))
-                  time.sleep(10)
+                  urllib.request.urlopen(req,timeout=25)
+                  raise AssertionError("Endpoint unexpectedly served "+method)
+              except urllib.error.HTTPError as exc:
+                  assert exc.code==410,(method,exc.code)
+                  print("PASS backend disabled:",method,"410 Gone")
           PY
-      - name: Install real browser for desktop and mobile verification
-        run: |
-          npm install --no-save playwright@1.56.1
-          npx playwright install --with-deps chromium
-      - name: Browser test for encrypted desktop/mobile chat and room change
-        run: node quiet-grid/e2e.mjs
-      - name: Cloud chat create join send poll
-        shell: bash
+      - name: Check published GitHub Pages offline screen
         run: |
           python3 - <<'PY'
-          import urllib.request,urllib.error,json,base64,time
-          u="https://wpfqcztbxxarsrruuuce.supabase.co/functions/v1/grid-workbook"
-          def call(action,**kw):
-              req=urllib.request.Request(u,data=json.dumps(dict(action=action,**kw)).encode(),headers={"Content-Type":"application/json"},method="POST")
-              with urllib.request.urlopen(req,timeout=35) as r: return json.load(r)
-          with urllib.request.urlopen(u+"?health=1",timeout=35) as r:
-              health=json.load(r)
-              assert health.get("ok"), health
-          room=call("create",alias="TestA")
-          assert len(room["roomCode"])==16
-          guest=call("join",code=room["roomCode"],alias="TestB")
-          assert room["memberId"]!=guest["memberId"]
-          cipher=base64.b64encode(b"ci-encrypted-test-payload").decode()
-          iv=base64.b64encode(b"123456789012").decode()
-          sent=call("send",token=room["token"],ciphertext=cipher,iv=iv)
-          feed=call("poll",token=guest["token"],after=0)
-          assert any(x["id"]==sent["messageId"] for x in feed["messages"]),feed
-          assert feed["day"]==health["day"]
-          print("PASS: javascript syntax; function health; create; join; send; poll")
+          import urllib.request,time
+          url="https://ui473295136-cmd.github.io/joe/quiet-grid/"
+          for attempt in range(12):
+              with urllib.request.urlopen(url,timeout=25) as r:
+                  html=r.read().decode("utf-8")
+                  if "网页已下架" in html and "该网页已停止提供服务。" in html and "<script" not in html.lower():
+                      print("PASS public page shows offline notice");break
+              if attempt==11:raise AssertionError("GitHub Pages has not updated")
+              time.sleep(10)
           PY
