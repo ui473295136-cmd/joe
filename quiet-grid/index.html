@@ -36,6 +36,9 @@
  .toast{max-width:92vw;min-width:190px;text-align:center}
 }
 .switchbtn{border:1px solid #d5e2d8;background:#f6fbf6;padding:5px 9px;border-radius:5px;color:#477355;font-size:11px;cursor:pointer}
+
+/* 长文本在协作记录中完整换行，避免聊天内容被省略号截断 */
+.sgrid.chat-grid tbody td:nth-child(5){height:auto;min-height:35px;white-space:pre-wrap;overflow-wrap:anywhere;word-break:break-word;line-height:1.5;padding-top:9px;padding-bottom:9px}
 </style>
 </head>
 <body>
