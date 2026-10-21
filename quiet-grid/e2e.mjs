@@ -48,6 +48,8 @@ try{
  await alice.locator("#grid tbody tr").filter({hasText:second}).locator(".incoming-unread").first().waitFor({state:"visible",timeout:15000});
  console.log("PASS incoming unread indicator");
  await reveal(bob);
+ // Read status requires the actual message row to be visible, not just present in the DOM.
+ await bob.locator("#grid tbody tr").filter({hasText:first}).first().scrollIntoViewIfNeeded();
  await bob.locator("#grid tbody tr").filter({hasText:first}).locator(".incoming-read").first().waitFor({state:"visible",timeout:20000});
  await reveal(alice);
  await alice.locator("#grid tbody tr").filter({hasText:first}).locator(".sent-read").first().waitFor({state:"visible",timeout:20000});
