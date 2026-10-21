@@ -43,6 +43,50 @@ try{
  await reveal(alice);
  await alice.locator("#grid tbody td:nth-child(5)").filter({hasText:second}).first().waitFor({state:"visible",timeout:25000});
  console.log("PASS mobile->desktop encrypted messaging");
+ // A received item must be marked unread until the intended reader opens the sheet.
+ await reveal(alice);
+ await alice.locator("#grid tbody tr").filter({hasText:second}).locator(".incoming-unread").first().waitFor({state:"visible",timeout:15000});
+ console.log("PASS incoming unread indicator");
+ await reveal(bob);
+ await bob.locator("#grid tbody tr").filter({hasText:first}).locator(".incoming-read").first().waitFor({state:"visible",timeout:20000});
+ await reveal(alice);
+ await alice.locator("#grid tbody tr").filter({hasText:first}).locator(".sent-read").first().waitFor({state:"visible",timeout:20000});
+ console.log("PASS actual-read acknowledgement reaches sender");
+ // New nickname appears in other member's sheet, including historical messages.
+ await reveal(bob);
+ await bob.locator(".renamebtn").click();
+ await bob.locator("#renameInput").fill("乙方已改名");
+ await bob.locator("#saveRename").click();
+ await bob.locator("#renameModal").waitFor({state:"hidden",timeout:15000});
+ await reveal(alice);
+ await alice.locator("#grid tbody tr").filter({hasText:second}).locator("td:nth-child(4)").filter({hasText:"乙方已改名"}).waitFor({state:"visible",timeout:15000});
+ console.log("PASS nickname changes propagate to previous messages");
+ // Different member cannot withdraw someone else's message.
+ const bSession=JSON.parse(await bob.evaluate(()=>sessionStorage.getItem("grid-workbook-session")));
+ const aSession=JSON.parse(await alice.evaluate(()=>sessionStorage.getItem("grid-workbook-session")));
+ const snapshot=await fetch(API,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({action:"poll",token:bSession.token,after:0})});
+ const snapshotData=await snapshot.json();
+ const ownMessages=snapshotData.messages.filter(x=>x.sender_id===bSession.memberId);
+ assert(ownMessages.length,"Bob has no message to recall");
+ const bobMessageId=ownMessages.at(-1).id;
+ const denied=await fetch(API,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({action:"recall",token:aSession.token,id:bobMessageId})});
+ assert.equal(denied.status,403,"Other member could recall private message");
+ await reveal(bob);
+ const withdrawRow=bob.locator("#grid tbody tr").filter({hasText:second}).first();
+ const accept=async dialog=>await dialog.accept();
+ bob.once("dialog",accept);
+ await withdrawRow.locator(".revoke-btn").click();
+ await withdrawRow.getByText("此条消息已撤回").waitFor({state:"visible",timeout:12000});
+ await reveal(alice);
+ await alice.locator("#grid tbody tr.withdrawn-row").filter({hasText:"此条消息已撤回"}).first().waitFor({state:"visible",timeout:18000});
+ assert.equal(await alice.locator("#grid tbody tr").filter({hasText:second}).count(),0,"Recalled plaintext remains in recipient table");
+ const checkRevoke=await fetch(API,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({action:"poll",token:aSession.token,after:0})});
+ const newData=await checkRevoke.json();
+ const retracted=newData.messages.find(x=>x.id===bobMessageId);
+ assert(retracted?.revoked_at,"Backend missing tombstone");
+ assert.equal(retracted.ciphertext,"UkVDQUxMRUQ=","Backend retained original encrypted message");
+ console.log("PASS owner-only withdrawal and remote plaintext removal");
+
  await bob.keyboard.press("Escape");
  assert(!(await bob.locator("#composer").evaluate(el=>el.classList.contains("show"))),"Escape did not hide chat");
  await bob.keyboard.press("F8");
