@@ -53,6 +53,10 @@
 .sgrid.chat-grid .receipt.incoming-unread{background:#dfecff;color:#1c65bc}
 .sgrid.chat-grid .receipt.incoming-read{background:#f4f7f4;color:#8c9b8f}
 .sgrid.chat-grid .receipt.pending{background:#fff3da;color:#9b7225}
+.sgrid.chat-grid .receipt.incoming-unread{cursor:pointer;outline-offset:3px}
+.sgrid.chat-grid .receipt.incoming-unread:hover{text-decoration:underline}
+.unread-jump{border:1px solid #b8d3ff;border-radius:5px;background:#e8f1ff;color:#1e61b8;font-weight:700;font-size:11px;cursor:pointer;padding:4px 7px}
+.unread-jump:hover{background:#dbeaff}
 .sgrid.chat-grid .receipt.recalled{background:#f5f5f5;color:#979e9a}
 .sgrid.chat-grid .revoke-btn{font-size:11px;color:#a05a4c;background:#fff;border:1px solid #eaded9;border-radius:4px;padding:4px 9px}
 .sgrid.chat-grid .revoke-btn:hover{border-color:#a05a4c;background:#fff4f1}
@@ -148,7 +152,13 @@ function escapeRowsToTable(rows,decorations){
    var td=document.createElement('td');var item=rows[i]&&rows[i][j]!=null?rows[i][j]:'';
    td.dataset.cell='ABCDEFG'[j]+(i+1);
    if(item&&typeof item==='object'&&item.type==='receipt'){
-    var span=document.createElement('span');span.className='receipt '+item.status;span.textContent=item.text;td.appendChild(span);
+    var span=document.createElement('span');span.className='receipt '+item.status;span.textContent=item.text;
+    if(item.status==='incoming-unread'&&typeof item.id==='number'){
+      span.title='点击标记为已读';span.setAttribute('role','button');span.tabIndex=0;
+      span.addEventListener('click',(function(id){return function(e){e.stopPropagation();markReadExplicit(id)}})(item.id));
+      span.addEventListener('keydown',(function(id){return function(e){if(e.key==='Enter'||e.key===' '){e.preventDefault();markReadExplicit(id)}}})(item.id));
+    }
+    td.appendChild(span);
    }else if(item&&typeof item==='object'&&item.type==='action'){
     var abtn=document.createElement('button');abtn.className='revoke-btn';abtn.textContent='撤回';
     abtn.setAttribute('aria-label','撤回第 '+(i)+' 条消息');
@@ -183,6 +193,11 @@ function render(){
  if(isChat){
   var chip=document.createElement('span');chip.className='room-chip';
   var num=document.createElement('span');num.textContent='共享编号 '+prettyCode(state.roomCode);
+  if(unread){
+    var jumper=document.createElement('button');jumper.className='unread-jump';
+    jumper.textContent='新消息 '+unread;
+    jumper.addEventListener('click',scrollToUnread);chip.appendChild(jumper);
+  }
   var cp=document.createElement('button');cp.className='copy';cp.textContent='复制编号';cp.addEventListener('click',copyCode);
   var change=document.createElement('button');change.className='switchbtn';change.textContent='换房间';change.addEventListener('click',switchRoom);
   var editName=document.createElement('button');editName.className='switchbtn renamebtn';editName.textContent='改昵称';editName.addEventListener('click',openRename);
@@ -208,7 +223,7 @@ function render(){
    var status=item.pending?{type:'receipt',text:'写入中',status:'pending'}:
      item.revoked_at?{type:'receipt',text:'已撤回',status:'recalled'}:
      mine?{type:'receipt',text:received?'✓ 已读':'○ 未读',status:received?'sent-read':'sent-unread'}:
-     {type:'receipt',text:isUnread?'● 未读':'✓ 已读',status:isUnread?'incoming-unread':'incoming-read'};
+     {type:'receipt',text:isUnread?'● 未读':'✓ 已读',status:isUnread?'incoming-unread':'incoming-read',id:item.id};
    var display=item.revoked_at?'此条消息已撤回':
      body.type==='image'?{type:'image',src:body.data}:(body.text||'')+(item.pending?'  · 写入中…':'');
    var actions=mine&&!item.pending&&!item.revoked_at&&typeof item.id==='number'?{type:'action',id:item.id}:'';
@@ -306,6 +321,24 @@ async function recallMessage(id){
   poll();
  }catch(err){toast(err.message||'撤回失败')}
  finally{delete state.recalling[id]}
+}
+function scrollToUnread(){
+ var idx=state.messages.findIndex(function(m){return typeof m.id==='number'&&m.sender_id!==state.memberId&&m.id>state.readThrough&&!m.revoked_at});
+ if(idx<0)return;
+ var row=$('grid').tBodies[0]&&$('grid').tBodies[0].rows[idx+1];
+ if(row){row.scrollIntoView({behavior:'smooth',block:'center'});scheduleRead()}
+}
+async function markReadExplicit(id){
+ if(!state.active||!state.opened||document.hidden)return;
+ var msg=state.messages.find(function(m){return m.id===id});
+ if(!msg||msg.sender_id===state.memberId||msg.revoked_at)return;
+ var epoch=state.roomEpoch;
+ try{
+  var data=await request('mark_read',{token:state.token,upto:id});
+  if(epoch!==state.roomEpoch||data.day!==state.day)return;
+  state.readThrough=Math.max(state.readThrough,data.readThrough||0);
+  render();
+ }catch(err){toast(err.message||'标记已读失败')}
 }
 function scheduleRead(){
  if(!state.active||!state.opened||document.hidden||state.readBusy)return;
