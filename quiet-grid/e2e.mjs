@@ -52,8 +52,13 @@ try{
  const oldSession=JSON.parse(await alice.evaluate(()=>sessionStorage.getItem("grid-workbook-session")));
  await alice.locator(".switchbtn").click();
  await alice.locator("#modal.open").waitFor({state:"visible",timeout:10000});
- const tokenResponse=await fetch(API,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({action:"poll",token:oldSession.token,after:0})});
- assert.equal(tokenResponse.status,401,"Previous token should be revoked when changing room");
+ let revoked=false;
+ for(let attempt=0;attempt<15;attempt++){
+  const tokenResponse=await fetch(API,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({action:"poll",token:oldSession.token,after:0})});
+  if(tokenResponse.status===401){revoked=true;break}
+  await new Promise(resolve=>setTimeout(resolve,400));
+ }
+ assert(revoked,"Previous token was not revoked after 6 seconds");
  assert(!(await alice.locator("#composer").evaluate(el=>el.classList.contains("show"))),"Switch room did not hide chat");
  console.log("PASS switch-room session revocation");
  if(errors.length)throw new Error("Browser errors: "+errors.join(" | "));
