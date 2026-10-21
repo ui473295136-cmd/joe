@@ -96,7 +96,7 @@ try{
  console.log("PASS Escape disguise and F8 restore");
  await reveal(alice);
  const oldSession=JSON.parse(await alice.evaluate(()=>sessionStorage.getItem("grid-workbook-session")));
- await alice.locator(".switchbtn").click();
+ await alice.getByRole("button",{name:"换房间"}).click();
  await alice.locator("#modal.open").waitFor({state:"visible",timeout:10000});
  let revoked=false;
  for(let attempt=0;attempt<15;attempt++){
