@@ -8,6 +8,7 @@ const errors=[];
 const desktop=await browser.newContext({viewport:{width:1440,height:900}});
 const mobile=await browser.newContext({viewport:{width:390,height:844},isMobile:true,hasTouch:true});
 const alice=await desktop.newPage(),bob=await mobile.newPage();
+async function reveal(page){await page.bringToFront();if(!(await page.locator("#composer").evaluate(el=>el.classList.contains("show")))){await page.keyboard.press("F8");await page.locator("#composer.show").waitFor({state:"visible"})}}
 alice.on("pageerror",e=>errors.push("desktop "+e.message));
 bob.on("pageerror",e=>errors.push("mobile "+e.message));
 try{
@@ -27,6 +28,7 @@ try{
  await bob.locator("#aliasInput").fill("乙方");
  await bob.locator("#confirmBtn").click();
  await bob.locator(".room-chip").waitFor({state:"visible",timeout:30000});
+ await reveal(alice);
  const first="你好，这是电脑端"+stamp;
  await alice.locator("#messageInput").fill(first);
  await alice.locator("#sendBtn").click();
@@ -34,9 +36,11 @@ try{
  const content=await bob.locator("#grid tbody td:nth-child(5)").filter({hasText:first}).first().boundingBox();
  assert(content && content.x>=0 && content.x+content.width<=392,"Mobile message cell outside viewport: "+JSON.stringify(content));
  console.log("PASS desktop->mobile encrypted messaging and mobile content width");
+ await reveal(bob);
  const second="手机发出的回话"+stamp;
  await bob.locator("#messageInput").fill(second);
  await bob.locator("#sendBtn").click();
+ await reveal(alice);
  await alice.locator("#grid tbody td:nth-child(5)").filter({hasText:second}).first().waitFor({state:"visible",timeout:25000});
  console.log("PASS mobile->desktop encrypted messaging");
  await bob.keyboard.press("Escape");
@@ -44,6 +48,7 @@ try{
  await bob.keyboard.press("F8");
  await bob.locator("#grid tbody td:nth-child(5)").filter({hasText:first}).first().waitFor({state:"visible",timeout:10000});
  console.log("PASS Escape disguise and F8 restore");
+ await reveal(alice);
  const oldSession=JSON.parse(await alice.evaluate(()=>sessionStorage.getItem("grid-workbook-session")));
  await alice.locator(".switchbtn").click();
  await alice.locator("#modal.open").waitFor({state:"visible",timeout:10000});
