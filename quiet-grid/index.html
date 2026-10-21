@@ -133,7 +133,7 @@ function render(){
   rows=[['序号','录入时间','登记人','事项描述 / 协作内容','处理状态','类型','备注']];
   state.messages.forEach(function(item,i){
    var body=item.decrypted||{};
-   rows.push([String(i+1).padStart(3,'0'),bjTime(item.created_at),body.author||'协作者',body.type==='image'?{type:'image',src:body.data}:body.text||'',item.pending?'写入中':'已同步',body.type==='image'?'附件':'常规','']);
+   rows.push([String(i+1).padStart(3,'0'),bjTime(item.created_at),body.author||'协作者',body.type==='image'?{type:'image',src:body.data}:(body.text||'')+(item.pending?'  · 写入中…':''),item.pending?'写入中':'已同步',body.type==='image'?'附件':'常规','']);
   });
  }else rows=normalRows;
  var scroller=$('gridScroll');var nearBottom=scroller.scrollHeight-scroller.scrollTop-scroller.clientHeight<140;
@@ -197,6 +197,7 @@ async function poll(){
    var item=items[i];
    if(item.id>state.last)state.last=item.id;
    await decrypt(item);
+   if(epoch!==state.roomEpoch)return;
    var existing=state.messages.findIndex(function(x){return x.id===item.id});
    if(existing<0)state.messages.push(item);else state.messages[existing]=item;
   }
@@ -219,16 +220,19 @@ async function send(body){
  state.busy=true;$('sendBtn').disabled=true;$('sendBtn').textContent='写入中…';
  body.author=state.alias;
  var epoch=state.roomEpoch;
+ var draftAtStart=$('messageInput').value;
  var optimistic={id:'local-'+Date.now()+'-'+Math.random(),created_at:new Date().toISOString(),decrypted:body,pending:true};
  state.messages.push(optimistic);if(state.opened)render();
  try{
   var encrypted=await encrypt(body);
   var result=await request('send',{token:state.token,ciphertext:encrypted.ciphertext,iv:encrypted.iv});
   if(epoch!==state.roomEpoch)return;
-  var original=state.messages.find(function(x){return x===optimistic});
-  if(original){original.id=result.messageId;original.pending=false}
+  var alreadySaved=state.messages.some(function(x){return x!==optimistic&&x.id===result.messageId});
+  if(alreadySaved)state.messages=state.messages.filter(function(x){return x!==optimistic});
+  else{optimistic.id=result.messageId;optimistic.pending=false}
+  state.messages.sort(function(a,b){return (typeof a.id==='number'?a.id:Number.MAX_SAFE_INTEGER)-(typeof b.id==='number'?b.id:Number.MAX_SAFE_INTEGER)});
   state.online=true;
-  if(body.type==='text')$('messageInput').value='';
+  if(body.type==='text'&&$('messageInput').value===draftAtStart)$('messageInput').value='';
   if(state.opened)render();
   await poll();
   if(state.opened&&body.type==='text')$('messageInput').focus();
@@ -266,8 +270,9 @@ async function compressPicture(file){
 }
 async function uploadImage(file){
  if(!file||state.busy)return;
+ var epoch=state.roomEpoch;
  $('imgBtn').disabled=true;$('imgBtn').textContent='处理中…';
- try{var data=await compressPicture(file);await send({type:'image',data:data})}
+ try{var data=await compressPicture(file);if(epoch!==state.roomEpoch||!state.active)return;await send({type:'image',data:data})}
  catch(err){toast(err.message||'图片上传失败')}
  finally{$('imgBtn').disabled=false;$('imgBtn').textContent='＋附件'}
 }
