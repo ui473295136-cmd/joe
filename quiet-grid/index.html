@@ -308,12 +308,12 @@ async function recallMessage(id){
  finally{delete state.recalling[id]}
 }
 function scheduleRead(){
- if(!state.active||!state.opened||document.hidden||!document.hasFocus()||state.readBusy)return;
+ if(!state.active||!state.opened||document.hidden||state.readBusy)return;
  if(state.readTimer)clearTimeout(state.readTimer);
  var epoch=state.roomEpoch;
  state.readTimer=setTimeout(async function(){
   state.readTimer=null;
-  if(epoch!==state.roomEpoch||!state.active||!state.opened||document.hidden||!document.hasFocus()||state.readBusy)return;
+  if(epoch!==state.roomEpoch||!state.active||!state.opened||document.hidden||state.readBusy)return;
   var grid=$('gridScroll'),bounds=grid.getBoundingClientRect(),max=0;
   state.messages.forEach(function(item,i){
    if(typeof item.id!=='number'||item.sender_id===state.memberId||item.id<=state.readThrough||item.revoked_at)return;
@@ -472,8 +472,14 @@ function installEvents(){
   if(e.key==='F8'){e.preventDefault();state.opened?disguise():enter()}
  });
  window.addEventListener('blur',function(){if(state.opened&&!state.pickingImage)disguise()});
- window.addEventListener('focus',function(){if(state.pickingImage)setTimeout(function(){state.pickingImage=false},700)});
- document.addEventListener('visibilitychange',function(){if(document.hidden&&state.opened&&!state.pickingImage)disguise()});
+ window.addEventListener('focus',function(){
+  if(state.pickingImage)setTimeout(function(){state.pickingImage=false},700);
+  if(state.active&&state.opened)scheduleRead();
+ });
+ document.addEventListener('visibilitychange',function(){
+  if(document.hidden&&state.opened&&!state.pickingImage)disguise();
+  else if(!document.hidden&&state.active&&state.opened)scheduleRead();
+ });
  document.querySelectorAll('.tabs .tab').forEach(function(btn){btn.addEventListener('click',function(){
   document.querySelectorAll('.tabs .tab').forEach(function(b){b.classList.remove('selected')});btn.classList.add('selected');if(btn.textContent==='数据'&&!state.active)toast('提示：工作簿协作功能位于下方「数据核验」');else if(btn.textContent==='视图'&&state.opened)disguise()
  })});
