@@ -39,6 +39,47 @@
 
 /* 长文本在协作记录中完整换行，避免聊天内容被省略号截断 */
 .sgrid.chat-grid tbody td:nth-child(5){height:auto;min-height:35px;white-space:pre-wrap;overflow-wrap:anywhere;word-break:break-word;line-height:1.5;padding-top:9px;padding-bottom:9px}
+
+/* Excel 记录式未读提醒、已读回执和撤回操作 */
+.sgrid.chat-grid tr.unread-incoming td{background:#eaf2ff!important}
+.sgrid.chat-grid tr.unread-incoming td:nth-child(5),.sgrid.chat-grid tr.unread-incoming td:nth-child(4){color:#1758b5!important;font-weight:700}
+.sgrid.chat-grid tr.fresh-incoming:not(.unread-incoming) td{background:#f3f8ff!important}
+.sgrid.chat-grid tr.fresh-incoming td:nth-child(5){color:#245fab;font-weight:600}
+.sgrid.chat-grid tr.unread-incoming th{background:#dcecff;border-left:3px solid #397cdf;color:#2560ae}
+.sgrid.chat-grid tr td:nth-child(6){font-weight:600}
+.sgrid.chat-grid .receipt{font-size:11px;display:inline-flex;align-items:center;gap:4px;white-space:nowrap;padding:2px 7px;border-radius:4px;background:#f0f3f0;color:#718377}
+.sgrid.chat-grid .receipt.sent-read{background:#e8f5ee;color:#17704d}
+.sgrid.chat-grid .receipt.sent-unread{background:#f1f3f6;color:#74808c}
+.sgrid.chat-grid .receipt.incoming-unread{background:#dfecff;color:#1c65bc}
+.sgrid.chat-grid .receipt.incoming-read{background:#f4f7f4;color:#8c9b8f}
+.sgrid.chat-grid .receipt.pending{background:#fff3da;color:#9b7225}
+.sgrid.chat-grid .receipt.recalled{background:#f5f5f5;color:#979e9a}
+.sgrid.chat-grid .revoke-btn{font-size:11px;color:#a05a4c;background:#fff;border:1px solid #eaded9;border-radius:4px;padding:4px 9px}
+.sgrid.chat-grid .revoke-btn:hover{border-color:#a05a4c;background:#fff4f1}
+.sgrid.chat-grid tr.withdrawn-row td:nth-child(5){color:#929d95!important;font-style:italic;font-weight:400!important}
+.sgrid.chat-grid tr.withdrawn-row td{background:#f8faf8!important}
+.sgrid.chat-grid tr.withdrawn-row td:nth-child(4){color:#89988d;font-weight:400!important}
+.sgrid.chat-grid tbody td:nth-child(5){white-space:pre-wrap;overflow-wrap:anywhere;word-break:break-word}
+#renameModal .rename-notice{color:#718575;font-size:12px;line-height:1.7;margin-top:8px}
+@media(max-width:720px){
+ .workbar.chat-mode{height:auto;min-height:52px;padding:5px 8px}
+ .workbar.chat-mode .room-chip{display:flex;flex-wrap:wrap;justify-content:flex-start;gap:5px}
+ .workbar.chat-mode .room-chip>span{flex-basis:100%;font-size:11px}
+ .room-chip .switchbtn{padding:4px 8px}
+ .sgrid.chat-grid col:nth-child(6),.sgrid.chat-grid col:nth-child(8){display:table-column!important}
+ .sgrid.chat-grid col:nth-child(6){width:57px!important}
+ .sgrid.chat-grid col:nth-child(8){width:52px!important}
+ .sgrid.chat-grid col:nth-child(3){width:52px!important}
+ .sgrid.chat-grid col:nth-child(4){width:55px!important}
+ .sgrid.chat-grid col:nth-child(7){display:none!important}
+ .sgrid.chat-grid thead th:nth-child(6),.sgrid.chat-grid thead th:nth-child(8),
+ .sgrid.chat-grid tbody tr>*:nth-child(6),.sgrid.chat-grid tbody tr>*:nth-child(8){display:table-cell!important}
+ .sgrid.chat-grid tbody tr>*:nth-child(7),.sgrid.chat-grid thead th:nth-child(7){display:none!important}
+ .sgrid.chat-grid tbody td:nth-child(6),.sgrid.chat-grid tbody td:nth-child(8){padding:5px 1px;text-align:center}
+ .sgrid.chat-grid .receipt{font-size:10px;padding:2px 3px}
+ .sgrid.chat-grid .revoke-btn{font-size:10px;padding:3px}
+ .sgrid.chat-grid tbody td:nth-child(5){padding:9px 5px;font-size:12px}
+}
 </style>
 </head>
 <body>
@@ -54,13 +95,22 @@
 <footer class="statusbar"><span id="statusText">● 就绪</span><span class="mobilehide">辅助功能: 正常</span><span class="fill"></span><span id="resetText">每天北京时间 00:00 自动重置</span><span>100%</span></footer>
 </div>
 <div class="sheet-modal" id="modal" role="dialog" aria-modal="true" aria-label="协作工作簿"><div class="modalbox"><div class="modalhead"><strong>▦ 协作工作簿</strong><button class="closex" id="closeModal" aria-label="关闭">×</button></div><div class="modalbody"><p class="modaldescription">创建共享工作表，或凭工作簿编号进入现有表格。每天北京时间 00:00 清除当天录入内容，工作簿编号保留。</p><div class="modepick"><button id="createTab" class="on">创建新工作簿</button><button id="joinTab">通过编号加入</button></div><div class="field" id="codeField" style="display:none"><label for="roomInput">工作簿编号</label><input id="roomInput" class="codeinput" autocomplete="off" spellcheck="false" placeholder="例：K8Q4-M7T3-N2P9-W6X5" maxlength="23"></div><div class="field"><label for="aliasInput">表格中显示的名字</label><input id="aliasInput" maxlength="18" placeholder="例如：小王" autocomplete="off"></div><div id="formError" class="error"></div><button class="primary full" id="confirmBtn">创建并进入</button><p class="tip">工作簿编号相当于访问钥匙。仅分享给需要协作的人。文字和图片在本机加密后上传。</p><div class="modalfoot"><span class="protect">▣</span><span>失焦自动遮盖 · 按 Esc 恢复普通工作表</span></div></div></div></div>
+<div class="sheet-modal" id="renameModal" role="dialog" aria-modal="true" aria-label="编辑协作昵称">
+ <div class="modalbox">
+ <div class="modalhead"><strong>▦ 修改登记人名称</strong><button class="closex" id="cancelRenameX" aria-label="关闭">×</button></div>
+ <div class="modalbody"><p class="modaldescription">新的昵称会同步显示在双方工作表中。已发送的内容不能修改，只能由发送者撤回。</p>
+  <div class="field"><label for="renameInput">新的登记人名称</label><input id="renameInput" maxlength="18" placeholder="输入新昵称" autocomplete="off"></div>
+  <p class="rename-notice">保存后几秒内同步到房间中的其他成员。</p>
+  <div id="renameError" class="error"></div>
+  <button class="primary full" id="saveRename">保存修改</button>
+ </div></div></div>
 <div class="preview-overlay" id="previewOverlay"><div class="preview-card"><img id="previewImage" alt="图片附件预览"><button class="closepreview" id="closePreview">关闭预览</button></div></div>
 <div class="toast" id="toast" role="status"></div>
 <script>
 (function(){
 'use strict';
 var API='https://wpfqcztbxxarsrruuuce.supabase.co/functions/v1/grid-workbook';
-var state={active:false,roomCode:'',token:'',memberId:'',alias:'',key:null,messages:[],last:0,day:bjDate(),busy:false,polling:false,opened:false,online:true,pickingImage:false,roomEpoch:0};
+var state={active:false,roomCode:'',token:'',memberId:'',alias:'',key:null,messages:[],last:0,day:bjDate(),busy:false,polling:false,opened:false,online:true,pickingImage:false,roomEpoch:0,readThrough:0,members:[],readTimer:null,readBusy:false,highlights:{},renaming:false,recalling:{}};
 var $=function(id){return document.getElementById(id)};
 var normalRows=[
 ['记录编号','所属月份','责任部门','工作事项','状态','负责人','备注'],
@@ -80,11 +130,11 @@ var columns=[46,112,127,123,390,124,132,200];
 var mode='create', toastTimer, midnightDay=state.day;
 function bjDate(){return new Date(Date.now()+28800000).toISOString().slice(0,10)}
 function bjTime(value){return new Intl.DateTimeFormat('zh-CN',{timeZone:'Asia/Shanghai',hour:'2-digit',minute:'2-digit',hour12:false}).format(new Date(value))}
-function clockTick(){var d=new Date();$('clock').textContent=new Intl.DateTimeFormat('zh-CN',{timeZone:'Asia/Shanghai',hour:'2-digit',minute:'2-digit',hour12:false}).format(d)+' 北京';if(midnightDay!==bjDate()){midnightDay=bjDate();state.day=midnightDay;state.messages=[];state.last=0;render();toast('北京时间 00:00，今日记录已清空');if(state.active)poll()}}
+function clockTick(){var d=new Date();$('clock').textContent=new Intl.DateTimeFormat('zh-CN',{timeZone:'Asia/Shanghai',hour:'2-digit',minute:'2-digit',hour12:false}).format(d)+' 北京';if(midnightDay!==bjDate()){midnightDay=bjDate();resetExtras();state.day=midnightDay;state.messages=[];state.last=0;render();toast('北京时间 00:00，今日记录已清空');if(state.active)poll()}}
 function toast(message){$('toast').textContent=message;$('toast').classList.add('show');clearTimeout(toastTimer);toastTimer=setTimeout(function(){$('toast').classList.remove('show')},2800)}
 function normalizeCode(code){return (code||'').toUpperCase().replace(/[^A-Z2-9]/g,'')}
 function prettyCode(code){return (code||'').replace(/(.{4})(?=.)/g,'$1-')}
-function escapeRowsToTable(rows){
+function escapeRowsToTable(rows,decorations){
  var table=$('grid');table.replaceChildren();var colgroup=document.createElement('colgroup');
  columns.forEach(function(width){var c=document.createElement('col');c.style.width=width+'px';colgroup.appendChild(c)});table.appendChild(colgroup);
  var thead=document.createElement('thead'), tr=document.createElement('tr');
@@ -92,12 +142,19 @@ function escapeRowsToTable(rows){
  'ABCDEFG'.split('').forEach(function(k){var th=document.createElement('th');th.textContent=k;tr.appendChild(th)});thead.appendChild(tr);table.appendChild(thead);
  var tbody=document.createElement('tbody');
  for(var i=0;i<Math.max(rows.length,29);i++){
-  var r=document.createElement('tr');if(i===0)r.className='fieldhead';
+  var r=document.createElement('tr');if(i===0)r.className='fieldhead';else if(decorations&&decorations[i])r.className=decorations[i];
   var h=document.createElement('th');h.textContent=i+1;r.appendChild(h);
   for(var j=0;j<7;j++){
    var td=document.createElement('td');var item=rows[i]&&rows[i][j]!=null?rows[i][j]:'';
    td.dataset.cell='ABCDEFG'[j]+(i+1);
-   if(item&&typeof item==='object'&&item.type==='image'){
+   if(item&&typeof item==='object'&&item.type==='receipt'){
+    var span=document.createElement('span');span.className='receipt '+item.status;span.textContent=item.text;td.appendChild(span);
+   }else if(item&&typeof item==='object'&&item.type==='action'){
+    var abtn=document.createElement('button');abtn.className='revoke-btn';abtn.textContent='撤回';
+    abtn.setAttribute('aria-label','撤回第 '+(i)+' 条消息');
+    abtn.addEventListener('click',(function(id){return function(ev){ev.stopPropagation();recallMessage(id)}})(item.id));
+    td.appendChild(abtn);
+   }else if(item&&typeof item==='object'&&item.type==='image'){
     var span=document.createElement('span');span.className='attachment';span.textContent='▧ 图片附件 · 单击查看';span.addEventListener('click',(function(src){return function(){showImage(src)}})(item.src));td.appendChild(span);
    }else {td.textContent=String(item)}
    td.title=typeof item==='string'?item:'';
@@ -118,7 +175,9 @@ function render(){
  $('sheetTitle').textContent=isChat?'共享登记 / 当日协作记录':'2026 年第四季度 · 日常项目跟进';
  $('sheetNormal').classList.toggle('current',!isChat);$('sheetExtra').classList.toggle('current',isChat);
  $('sheetExtra').textContent='协作记录';
+ var unread=isChat?state.messages.filter(function(m){return typeof m.id==='number'&&m.sender_id!==state.memberId&&m.id>state.readThrough&&!m.revoked_at}).length:0;
  $('statusText').textContent=isChat?(state.online?'● 协作已连接':'○ 同步中断，正在重试'):'● 就绪';
+ if(isChat&&unread)$('statusText').textContent+=' · '+unread+' 条未读';
  $('cellCount').textContent=isChat?'今日 '+state.messages.length+' 条录入':'共 28 行记录';
  var right=$('workRight');right.replaceChildren();
  if(isChat){
@@ -126,29 +185,48 @@ function render(){
   var num=document.createElement('span');num.textContent='共享编号 '+prettyCode(state.roomCode);
   var cp=document.createElement('button');cp.className='copy';cp.textContent='复制编号';cp.addEventListener('click',copyCode);
   var change=document.createElement('button');change.className='switchbtn';change.textContent='换房间';change.addEventListener('click',switchRoom);
+  var editName=document.createElement('button');editName.className='switchbtn renamebtn';editName.textContent='改昵称';editName.addEventListener('click',openRename);
   var hide=document.createElement('button');hide.className='hidebtn';hide.textContent='隐藏 Esc';hide.addEventListener('click',disguise);
-  chip.append(num,cp,change,hide);right.appendChild(chip);
+  chip.append(num,cp,editName,change,hide);right.appendChild(chip);
  }else{
   var text=document.createElement('span');text.textContent='工作簿视图';var pill=document.createElement('span');pill.className='pill';pill.textContent='内部数据';right.append(text,pill);
  }
- var rows;
+ var rows,decorations={};
  if(isChat){
-  rows=[['序号','录入时间','登记人','事项描述 / 协作内容','处理状态','类型','备注']];
+  rows=[['序号','录入时间','登记人','事项描述 / 协作内容','阅读状态','类型','操作']];
   state.messages.forEach(function(item,i){
    var body=item.decrypted||{};
-   rows.push([String(i+1).padStart(3,'0'),bjTime(item.created_at),body.author||'协作者',body.type==='image'?{type:'image',src:body.data}:(body.text||'')+(item.pending?'  · 写入中…':''),item.pending?'写入中':'已同步',body.type==='image'?'附件':'常规','']);
+   var mine=item.sender_id===state.memberId;
+   var isUnread=!mine&&typeof item.id==='number'&&item.id>state.readThrough&&!item.revoked_at;
+   var fresh=!mine&&typeof item.id==='number'&&state.highlights[item.id]>Date.now();
+   var person=state.members.find(function(m){return m.id===item.sender_id});
+   var senderName=person?person.name:(mine?state.alias:(body.author||'协作者'));
+   if(item.revoked_at)decorations[i+1]='withdrawn-row';
+   else if(isUnread)decorations[i+1]='unread-incoming';
+   else if(fresh)decorations[i+1]='fresh-incoming';
+   var received=mine&&typeof item.id==='number'&&state.members.some(function(m){return m.id!==state.memberId&&m.upto>=item.id});
+   var status=item.pending?{type:'receipt',text:'写入中',status:'pending'}:
+     item.revoked_at?{type:'receipt',text:'已撤回',status:'recalled'}:
+     mine?{type:'receipt',text:received?'✓ 已读':'○ 未读',status:received?'sent-read':'sent-unread'}:
+     {type:'receipt',text:isUnread?'● 未读':'✓ 已读',status:isUnread?'incoming-unread':'incoming-read'};
+   var display=item.revoked_at?'此条消息已撤回':
+     body.type==='image'?{type:'image',src:body.data}:(body.text||'')+(item.pending?'  · 写入中…':'');
+   var actions=mine&&!item.pending&&!item.revoked_at&&typeof item.id==='number'?{type:'action',id:item.id}:'';
+   rows.push([String(i+1).padStart(3,'0'),bjTime(item.created_at),senderName,display,status,item.revoked_at?'撤回':(body.type==='image'?'附件':'文字'),actions]);
   });
  }else rows=normalRows;
  var scroller=$('gridScroll');var nearBottom=scroller.scrollHeight-scroller.scrollTop-scroller.clientHeight<140;
- escapeRowsToTable(rows);
+ escapeRowsToTable(rows,decorations);
+ if(isChat&&unread)scheduleRead();
  if(isChat&&nearBottom)requestAnimationFrame(function(){scroller.scrollTop=scroller.scrollHeight});
  if(!isChat)$('formulaVal').textContent='常规数据核对';
 }
 function showModal(join){mode=join?'join':'create';$('modal').classList.add('open');setMode(mode);$('aliasInput').value=state.alias||'';$('formError').textContent='';setTimeout(function(){(join?$('roomInput'):$('aliasInput')).focus()},50)}
 function closeModal(){$('modal').classList.remove('open')}
 function setMode(next){mode=next;$('createTab').classList.toggle('on',next==='create');$('joinTab').classList.toggle('on',next==='join');$('codeField').style.display=next==='join'?'block':'none';$('confirmBtn').textContent=next==='create'?'创建并进入':'加入工作簿';$('formError').textContent=''}
-function disguise(){state.opened=false;render();closeModal();$('previewOverlay').classList.remove('open')}
-async function switchRoom(){var previousToken=state.token;state.roomEpoch++;state.opened=false;state.active=false;state.messages=[];state.last=0;state.token='';state.roomCode='';state.key=null;state.online=true;sessionStorage.removeItem('grid-workbook-session');$('messageInput').value='';render();showModal(true);if(previousToken)request('leave',{token:previousToken}).catch(function(){})}
+function resetExtras(){if(state.readTimer){clearTimeout(state.readTimer);state.readTimer=null}state.readThrough=0;state.members=[];state.highlights={}}
+function disguise(){if(state.readTimer){clearTimeout(state.readTimer);state.readTimer=null}state.opened=false;render();closeModal();closeRename();$('previewOverlay').classList.remove('open')}
+async function switchRoom(){var previousToken=state.token;state.roomEpoch++;resetExtras();state.opened=false;state.active=false;state.messages=[];state.last=0;state.token='';state.roomCode='';state.key=null;state.online=true;sessionStorage.removeItem('grid-workbook-session');$('messageInput').value='';render();showModal(true);if(previousToken)request('leave',{token:previousToken}).catch(function(){})}
 function enter(){if(state.active){state.opened=true;render();poll();$('messageInput').focus()}else showModal(true)}
 function bytesToBase64(bytes){var binary='';for(var i=0;i<bytes.length;i+=8192)binary+=String.fromCharCode.apply(null,bytes.subarray(i,i+8192));return btoa(binary)}
 function base64ToBytes(str){var bin=atob(str);var result=new Uint8Array(bin.length);for(var i=0;i<bin.length;i++)result[i]=bin.charCodeAt(i);return result}
@@ -172,7 +250,7 @@ async function joinOrCreate(){if(state.busy)return;var code=normalizeCode($('roo
  var alias=$('aliasInput').value.trim().slice(0,18)||'协作者';state.busy=true;$('confirmBtn').disabled=true;$('confirmBtn').textContent='正在连接…';$('formError').textContent='';
  try{var res=await request(mode,{code:code,alias:alias});
   state.roomCode=res.roomCode;state.token=res.token;state.memberId=res.memberId;state.alias=alias;state.key=await derive(res.roomCode);
-  state.roomEpoch++;state.active=true;state.opened=true;state.online=true;state.messages=[];state.last=0;state.day=res.day;midnightDay=bjDate();
+  state.roomEpoch++;resetExtras();state.active=true;state.opened=true;state.online=true;state.messages=[];state.last=0;state.day=res.day;midnightDay=bjDate();
   sessionStorage.setItem('grid-workbook-session',JSON.stringify({roomCode:state.roomCode,token:state.token,memberId:state.memberId,alias:alias}));
   closeModal();render();poll();toast('已连接 · 复制编号邀请对方加入');
  }catch(err){$('formError').textContent=err.message}
@@ -185,6 +263,76 @@ async function copyCode(){
  var ok=false;try{ok=document.execCommand('copy')}catch(e){}field.remove();
  if(ok)toast('工作簿编号已复制');else window.prompt('请长按或选中复制工作簿编号：',value);
 }
+
+function openRename(){
+ if(!state.active)return;
+ $('renameInput').value=state.alias;
+ $('renameError').textContent='';
+ $('renameModal').classList.add('open');
+ setTimeout(function(){$('renameInput').focus();$('renameInput').select()},40);
+}
+function closeRename(){$('renameModal').classList.remove('open')}
+async function saveRename(){
+ if(state.renaming||!state.active)return;
+ var newName=$('renameInput').value.trim();
+ if(!newName||[...newName].length>18){$('renameError').textContent='请输入 1–18 个字符';return}
+ state.renaming=true;$('saveRename').disabled=true;$('renameError').textContent='';
+ var epoch=state.roomEpoch;
+ try{
+  var answer=await request('rename',{token:state.token,name:newName});
+  if(epoch!==state.roomEpoch)return;
+  state.alias=answer.name;
+  var me=state.members.find(function(m){return m.id===state.memberId});
+  if(me)me.name=answer.name;
+  var cached=JSON.parse(sessionStorage.getItem('grid-workbook-session')||'null');
+  if(cached&&cached.token===state.token){cached.alias=answer.name;sessionStorage.setItem('grid-workbook-session',JSON.stringify(cached))}
+  closeRename();render();toast('昵称已更新，其他成员会同步看到');
+ }catch(err){$('renameError').textContent=err.message||'修改失败'}
+ finally{state.renaming=false;$('saveRename').disabled=false}
+}
+async function recallMessage(id){
+ var item=state.messages.find(function(m){return m.id===id});
+ if(!item||item.sender_id!==state.memberId||item.revoked_at)return;
+ if(!window.confirm('撤回这条记录？撤回后双方将看不到原文或图片，且无法恢复。'))return;
+ if(state.recalling[id])return;
+ state.recalling[id]=true;
+ var epoch=state.roomEpoch;
+ try{
+  var data=await request('recall',{token:state.token,id:id});
+  if(epoch!==state.roomEpoch)return;
+  var existing=state.messages.find(function(m){return m.id===id});
+  if(existing){existing.revoked_at=data.revoked_at;existing.decrypted=null;existing.ciphertext='';existing.iv=''}
+  render();toast('已撤回，另一方同步后将看到撤回提示');
+  poll();
+ }catch(err){toast(err.message||'撤回失败')}
+ finally{delete state.recalling[id]}
+}
+function scheduleRead(){
+ if(!state.active||!state.opened||document.hidden||!document.hasFocus()||state.readBusy)return;
+ if(state.readTimer)clearTimeout(state.readTimer);
+ var epoch=state.roomEpoch;
+ state.readTimer=setTimeout(async function(){
+  state.readTimer=null;
+  if(epoch!==state.roomEpoch||!state.active||!state.opened||document.hidden||!document.hasFocus()||state.readBusy)return;
+  var grid=$('gridScroll'),bounds=grid.getBoundingClientRect(),max=0;
+  state.messages.forEach(function(item,i){
+   if(typeof item.id!=='number'||item.sender_id===state.memberId||item.id<=state.readThrough||item.revoked_at)return;
+   var row=$('grid').tBodies[0]&&$('grid').tBodies[0].rows[i+1];
+   if(!row)return;
+   var rect=row.getBoundingClientRect();
+   if(rect.bottom>bounds.top+10&&rect.top<bounds.bottom-10)max=Math.max(max,item.id);
+  });
+  if(!max)return;
+  state.readBusy=true;
+  try{
+   var data=await request('mark_read',{token:state.token,upto:max});
+   if(epoch!==state.roomEpoch||data.day!==state.day)return;
+   state.readThrough=Math.max(state.readThrough,data.readThrough||0);
+   if(state.opened)render();
+  }catch(err){/* Keep unread on failure; retry after the next poll. */}
+  finally{state.readBusy=false}
+ },2600);
+}
 async function poll(){
  if(!state.active||state.polling)return;
  var epoch=state.roomEpoch,token=state.token;
@@ -193,13 +341,25 @@ async function poll(){
   var data=await request('poll',{token:token,after:state.last,day:state.day});
   if(epoch!==state.roomEpoch||!state.active)return;
   if(data.day<bjDate())return; // Ignore a delayed response from yesterday.
-  if(data.day!==state.day){state.day=data.day;state.messages=[];state.last=0}
+  if(data.day!==state.day){resetExtras();state.day=data.day;state.messages=[];state.last=0}
+  var prevMembers=JSON.stringify(state.members),prevRead=state.readThrough,withdrawalsChanged=false;
+  state.readThrough=Math.max(state.readThrough,Number(data.readThrough)||0);
+  state.members=data.members||[];
+  var recalled=data.revoked||[];
+  recalled.forEach(function(mark){
+   var msg=state.messages.find(function(m){return m.id===mark.id});
+   if(msg&&!msg.revoked_at){msg.revoked_at=mark.revoked_at;msg.decrypted=null;msg.ciphertext='';msg.iv='';withdrawalsChanged=true}
+  });
   var items=data.messages||[];
   for(var i=0;i<items.length;i++){
    if(epoch!==state.roomEpoch)return;
    var item=items[i];
    if(item.id>state.last)state.last=item.id;
-   await decrypt(item);
+   if(item.revoked_at){item.decrypted=null;item.ciphertext='';item.iv=''}
+   else{
+    if(item.sender_id!==state.memberId&&item.id>state.readThrough&&!state.highlights[item.id])state.highlights[item.id]=Date.now()+45000;
+    await decrypt(item);
+   }
    if(epoch!==state.roomEpoch)return;
    var existing=state.messages.findIndex(function(x){return x.id===item.id});
    if(existing<0)state.messages.push(item);else state.messages[existing]=item;
@@ -209,12 +369,12 @@ async function poll(){
   });
   if(state.messages.length>300)state.messages=state.messages.slice(-300);
   var recovered=!state.online;state.online=true;
-  if((items.length||recovered)&&state.opened)render();
+  if((items.length||recovered||withdrawalsChanged||prevMembers!==JSON.stringify(state.members)||prevRead!==state.readThrough)&&state.opened)render();
   if(recovered)toast('网络已恢复，协作记录已同步');
  }catch(err){
   if(epoch!==state.roomEpoch)return;
   var lost=/会话已失效/.test(err.message);
-  if(lost){sessionStorage.removeItem('grid-workbook-session');state.roomEpoch++;state.active=false;state.messages=[];state.key=null;disguise();toast('会话已失效，请重新加入')}
+  if(lost){sessionStorage.removeItem('grid-workbook-session');state.roomEpoch++;resetExtras();state.active=false;state.messages=[];state.key=null;disguise();toast('会话已失效，请重新加入')}
   else{if(state.online)toast('同步暂时中断，正在自动重试');state.online=false;if(state.opened)$('statusText').textContent='○ 同步中断，正在重试'}
  }finally{state.polling=false}
 }
@@ -300,8 +460,14 @@ function installEvents(){
  $('closePreview').addEventListener('click',function(){$('previewOverlay').classList.remove('open');$('previewImage').removeAttribute('src')});
  $('previewOverlay').addEventListener('click',function(e){if(e.target===$('previewOverlay'))$('closePreview').click()});
  $('modal').addEventListener('click',function(e){if(e.target===$('modal'))closeModal()});
+ $('cancelRenameX').addEventListener('click',closeRename);
+ $('saveRename').addEventListener('click',saveRename);
+ $('renameInput').addEventListener('keydown',function(e){if(e.key==='Enter')saveRename()});
+ $('renameModal').addEventListener('click',function(e){if(e.target===$('renameModal'))closeRename()});
+ $('gridScroll').addEventListener('scroll',function(){if(state.active&&state.opened)scheduleRead()},{passive:true});
+ document.addEventListener('focusin',function(){if(state.active&&state.opened)scheduleRead()});
  document.addEventListener('keydown',function(e){
-  if(e.key==='Escape'){if($('previewOverlay').classList.contains('open'))$('closePreview').click();else disguise();return}
+  if(e.key==='Escape'){if($('renameModal').classList.contains('open'))closeRename();else if($('previewOverlay').classList.contains('open'))$('closePreview').click();else disguise();return}
   if(e.ctrlKey&&e.shiftKey&&e.key.toLowerCase()==='l'){e.preventDefault();if($('modal').classList.contains('open'))closeModal();else state.active?enter():showModal(true)}
   if(e.key==='F8'){e.preventDefault();state.opened?disguise():enter()}
  });
@@ -312,7 +478,7 @@ function installEvents(){
   document.querySelectorAll('.tabs .tab').forEach(function(b){b.classList.remove('selected')});btn.classList.add('selected');if(btn.textContent==='数据'&&!state.active)toast('提示：工作簿协作功能位于下方「数据核验」');else if(btn.textContent==='视图'&&state.opened)disguise()
  })});
 }
-async function restore(){try{var cached=JSON.parse(sessionStorage.getItem('grid-workbook-session')||'null');if(!cached||!cached.token||!cached.roomCode)return;var result=await request('poll',{token:cached.token,after:0});state.roomCode=cached.roomCode;state.token=cached.token;state.memberId=cached.memberId;state.alias=cached.alias;state.key=await derive(cached.roomCode);state.roomEpoch++;state.active=true;state.opened=false;state.online=true;state.day=result.day;midnightDay=bjDate();state.messages=[];state.last=0;for(var item of result.messages||[]){state.last=Math.max(state.last,item.id);state.messages.push(await decrypt(item))}render()}catch(e){sessionStorage.removeItem('grid-workbook-session')}}
+async function restore(){try{var cached=JSON.parse(sessionStorage.getItem('grid-workbook-session')||'null');if(!cached||!cached.token||!cached.roomCode)return;var result=await request('poll',{token:cached.token,after:0});state.roomCode=cached.roomCode;state.token=cached.token;state.memberId=cached.memberId;state.alias=cached.alias;state.key=await derive(cached.roomCode);state.roomEpoch++;resetExtras();state.active=true;state.opened=false;state.online=true;state.day=result.day;state.readThrough=Number(result.readThrough)||0;state.members=result.members||[];midnightDay=bjDate();state.messages=[];state.last=0;for(var item of result.messages||[]){state.last=Math.max(state.last,item.id);state.messages.push(await decrypt(item))}render()}catch(e){sessionStorage.removeItem('grid-workbook-session')}}
 installEvents();render();restore();clockTick();setInterval(clockTick,1000);setInterval(function(){if(state.active)poll()},2400);
 })();
 </script>
