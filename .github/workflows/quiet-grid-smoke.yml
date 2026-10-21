@@ -4,6 +4,7 @@ on:
   push:
     paths:
       - ".github/workflows/quiet-grid-smoke.yml"
+      - "quiet-grid/**"
 jobs:
   verify:
     runs-on: ubuntu-latest
@@ -44,6 +45,12 @@ jobs:
                   print("Waiting for Github Pages:",str(e))
                   time.sleep(10)
           PY
+      - name: Install real browser for desktop and mobile verification
+        run: |
+          npm install --no-save playwright@1.56.1
+          npx playwright install --with-deps chromium
+      - name: Browser test for encrypted desktop/mobile chat and room change
+        run: node quiet-grid/e2e.mjs
       - name: Cloud chat create join send poll
         shell: bash
         run: |
